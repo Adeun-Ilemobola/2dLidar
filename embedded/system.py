@@ -1,8 +1,6 @@
 # embedded/system.py
-# This is your "master class" / orchestrator.
-# It owns modules (motors, sensors, lidar...) and handles commands from UI.
 
-from __future__ import annotations
+from gpiozero.pins.pigpio import PiGPIOFactory
 from embedded.bus import EventBus
 from embedded.modules.motors import Motor , ServoConfig
 from shared.protocol import Command, EnableMotor ,MotorAngleState
@@ -11,10 +9,10 @@ from shared.protocol import Command, EnableMotor ,MotorAngleState
 class System:
     def __init__(self, bus: EventBus) -> None:
         self.bus = bus
-        self.Pi = any()
+        self.factory = PiGPIOFactory()
         self.motors = {
-            "x": Motor(ServoConfig(pin=17), self.Pi),
-            "y": Motor(ServoConfig(pin=27), self.Pi),
+            "x": Motor(ServoConfig(pin=17), self.factory),
+            "y": Motor(ServoConfig(pin=27), self.factory),
         }
 
     def configure_all(self) -> None:

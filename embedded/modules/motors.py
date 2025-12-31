@@ -1,19 +1,29 @@
 # embedded/modules/motor.py
-from __future__ import annotations
+
+from gpiozero import AngularServo
+from gpiozero.pins.pigpio import PiGPIOFactory
 from dataclasses import dataclass
 
 @dataclass
 class ServoConfig:
     pin: int
-    min_pulse_us: int = 500 / 1000000
-    max_pulse_us: int = 2500 / 1000000
+    min_pulse_us: int = 500
+    max_pulse_us: int = 2500
     max_angle_deg: float = 270.0
+    min_angle_deg: float = 0.0
 
 
 class Motor:
-    def __init__(self, cfg: ServoConfig, pi) -> None:
+    def __init__(self, cfg: ServoConfig , factory:PiGPIOFactory) -> None:
         self.cfg = cfg
-        self.PI = pi
+        self.Servo = AngularServo(
+            cfg.pin,
+            min_angle=cfg.min_angle_deg,
+            max_angle=cfg.max_angle_deg,
+            min_pulse_width=cfg.min_pulse_us /1_000_000,
+            max_pulse_width=cfg.max_pulse_us /1_000_000,
+            pin_factory=factory,
+        )
 
         self._enabled: bool = False
         self._offset_deg: float = 0.0
@@ -52,7 +62,7 @@ class Motor:
         # real angle = requested + offset
         physical_deg = self._clamp_angle(self._angle_deg + self._offset_deg)
         pulse = self._angle_to_pulse_us(physical_deg)
-        self.PI.write_pulse_us(self.cfg.pin, pulse)
+        self.Servo.angle = pulse
 
     def _angle_to_pulse_us(self, angle_deg: float) -> int:
         ratio = angle_deg *  (self.cfg.max_pulse_us / self.cfg.max_angle_deg)

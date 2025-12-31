@@ -1,4 +1,4 @@
-# ui/controller.py
+# /controller.py
 # This file is the bridge between Qt (UI thread) and embedded System (worker thread).
 # It also converts embedded events into Qt signals so widgets can update safely.
 
