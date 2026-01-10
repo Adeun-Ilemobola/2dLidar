@@ -1,97 +1,83 @@
-from PySide6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QGridLayout, QScrollArea, QPushButton, QFrame, QLabel
-)
-from ui.components.motor_panel import MotorPanel
+import queue
+import customtkinter as ctk
 
-from ui.controller import Controller
+from embedded.worker import HardwareWorker
+from shared.protocol import MotorState, Log, ScanProgress , Command
+
+from ui.components.motor_panel import MotorPanel  # make sure this is the CTk version, not Qt QWidget version
 
 
-
-class MainWindow(QMainWindow):
-    def __init__(self ,Title ="Pi Control Panel (Qt)" , size =(1000 , 1000)):
+class MainWindow(ctk.CTk):
+    def __init__(self, title="Pi Control Panel", size=(1000, 700)):
         super().__init__()
-        self.setWindowTitle(Title)
-        self.resize(size[0], size[1])
-        self.controller = Controller()
-        # 2. Main Central Widget
-        self.central_widget = QWidget()
-        self.setCentralWidget(self.central_widget)
+        self.title(title)
+        self.geometry(f"{size[0]}x{size[1]}")
 
-        # 3. Main Vertical Layout (Splits Top Control area vs Bottom Canvas)
-        self.main_layout = QVBoxLayout(self.central_widget)
+        # Queues
+        self.cmd_q: "queue.Queue" = queue.Queue()
+        self.event_q: "queue.Queue" = queue.Queue()
 
-        # ============================================================
-        # SECTION A: TOP AREA (Controllers + List)
-        # ============================================================
-        self.top_container = QWidget()
-        self.top_layout = QHBoxLayout(self.top_container)
-        self.top_layout.setContentsMargins(0, 0, 0, 0)  # Optional cleanup
+        # Worker thread
+        self.worker = HardwareWorker(self.cmd_q, self.event_q)
+        self.worker.start()
 
-        # --- A1. Left Side (Motors + Buttons) ---
-        self.left_panel = QWidget()
-        self.left_layout = QVBoxLayout(self.left_panel)
+        # Layout containers
+        self.root_frame = ctk.CTkFrame(self)
+        self.root_frame.pack(fill="both", expand=True, padx=12, pady=12)
 
-        # Part 1: Motor Controller (Pink Area)
-        self.motor_container = QWidget()
-        self.motor_layout = QHBoxLayout(self.motor_container)
+        self.top_row = ctk.CTkFrame(self.root_frame)
+        self.top_row.pack(fill="x", padx=8, pady=8)
 
-        self.motorX = MotorPanel(self.controller, axis='x', parent=self)
-        self.motorY = MotorPanel(self.controller, axis='y', parent=self)
+        # Motor panels (pass send_cmd function)
+        self.motorX = MotorPanel(self.top_row, axis="x", send_cmd=self.send_cmd)
+        self.motorY = MotorPanel(self.top_row, axis="y", send_cmd=self.send_cmd)
 
-        self.motor_layout.addWidget(self.motorX)
-        self.motor_layout.addWidget(self.motorY)
+        self.motorX.pack(side="left", padx=8, pady=8)
+        self.motorY.pack(side="left", padx=8, pady=8)
 
-        # Part 2: Button Grid (Blue Area)
-        self.button_container = QWidget()
-        self.button_grid = QGridLayout(self.button_container)
+        # Start polling events (CTk replacement for QTimer)
+        self.after(16, self.poll_events)
 
-        # Adding dummy buttons to match your 2x3 grid
-        button_names = ["Button 1", "Button 2", "Button 3",
-                        "Button 4", "Button 5", "Button 6"]
+        # Proper close handler
+        self.protocol("WM_DELETE_WINDOW", self.on_close)
 
-        for i, name in enumerate(button_names):
-            btn = QPushButton(name)
-            row = i // 3  # 0, 0, 0, 1, 1, 1
-            col = i % 3  # 0, 1, 2, 0, 1, 2
-            self.button_grid.addWidget(btn, row, col)
+    def send_cmd(self, cmd:Command):
+        self.cmd_q.put(cmd)
 
-        # Add parts to Left Panel
-        self.left_layout.addWidget(self.motor_container)
-        self.left_layout.addWidget(self.button_container)
-        self.left_layout.addStretch()  # Pushes everything up
+    def poll_events(self):
+        while True:
+            try:
+                ev = self.event_q.get_nowait()
+            except queue.Empty:
+                break
 
-        # --- A2. Right Side (Scroll Area) (Purple Area) ---
-        self.scroll_area = QScrollArea()
-        self.scroll_area.setWidgetResizable(True)
-        # Placeholder content for scroll area
-        self.scroll_content = QLabel("List of points goes here...\n" * 20)
-        self.scroll_area.setWidget(self.scroll_content)
+            if isinstance(ev, MotorState):
+                if ev.axis == "x":
+                    self.motorX.apply_motor_state(
+                        angle_deg=ev.angle_deg,
+                        offset_deg=ev.offset_deg,
+                        enabled=ev.enabled,
+                    )
+                elif ev.axis == "y":
+                    self.motorY.apply_motor_state(
+                        angle_deg=ev.angle_deg,
+                        offset_deg=ev.offset_deg,
+                        enabled=ev.enabled,
+                    )
 
-        # Add Left and Right to Top Layout
-        self.top_layout.addWidget(self.left_panel, stretch=2)  # 2/3 width
-        self.top_layout.addWidget(self.scroll_area, stretch=1)  # 1/3 width
+            elif isinstance(ev, Log):
+                print(ev.message)
 
-        # ============================================================
-        # SECTION B: BOTTOM AREA (Canvas/SVG) (Grey Area)
-        # ============================================================
-        self.canvas_area = QFrame()
-        self.canvas_area.setFrameShape(QFrame.Shape.StyledPanel)
-        self.canvas_area.setStyleSheet("background-color: #DDDDDD;")  # Just to visualize grey area
+            elif isinstance(ev, ScanProgress):
+                # update a progress bar later
+                pass
 
-        # Label placeholder
-        canvas_label = QLabel("SVG or Canvas Area", self.canvas_area)
-        canvas_label.move(20, 20)
+        # Schedule next poll
+        self.after(16, self.poll_events)
 
-        # ============================================================
-        # FINAL ASSEMBLY
-        # ============================================================
-
-        # Add Top Section and Bottom Section to Main Layout
-        self.main_layout.addWidget(self.top_container, stretch=1)  # Top takes less height
-        self.main_layout.addWidget(self.canvas_area, stretch=2)  # Canvas takes more height
-
-
-
-
-
+    def on_close(self):
+        try:
+            self.worker.shutdown()
+        except Exception:
+            pass
+        self.destroy()

@@ -1,39 +1,51 @@
 # shared/protocol.py
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Literal, Union
+from typing import Literal, Union, Optional
 
 Axis = Literal["x", "y"]
 
-# Shared type used by BOTH UI and embedded
+# ---------- Commands (UI -> embedded) ----------
 @dataclass(frozen=True, slots=True)
-class Point:
-    x: float
-    y: float
-    z: float
-    is_void: bool = False
+class EnableMotor:
+    axis: Axis
+    enabled: bool
 
-# -----------------
-# Commands (UI -> System)
-# -----------------
 @dataclass(frozen=True, slots=True)
-class MotorAngleState:
+class SetMotorAngle:
+    axis: Axis
+    angle_deg: float
+
+@dataclass(frozen=True, slots=True)
+class SetMotorOffset:
+    axis: Axis
+    offset_deg: float
+
+@dataclass(frozen=True, slots=True)
+class StartScan:
+    pass
+
+@dataclass(frozen=True, slots=True)
+class StopScan:
+    pass
+
+Command = Union[EnableMotor, SetMotorAngle, SetMotorOffset, StartScan, StopScan]
+
+# ---------- Events (embedded -> UI) ----------
+@dataclass(frozen=True, slots=True)
+class MotorState:
     axis: Axis
     angle_deg: float
     offset_deg: float
     enabled: bool
 
 @dataclass(frozen=True, slots=True)
-class EnableMotor:
-    axis: Axis
-    enabled: bool
+class Log:
+    message: str
 
-Command = Union[MotorAngleState, EnableMotor]
+@dataclass(frozen=True, slots=True)
+class ScanProgress:
+    current: int
+    total: int
 
-# -----------------
-# Events (System -> UI)
-# -----------------
-
-
-
-Event = Union[MotorAngleState , MotorAngleState]
+Event = Union[MotorState, Log, ScanProgress]
