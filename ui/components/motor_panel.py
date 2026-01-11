@@ -76,6 +76,10 @@ class MotorPanel(ctk.CTkFrame):
     # ---------- helpers ----------
     def update_angle_label(self):
         self.angle_label.configure(text=f"Angle: {self.angle:.2f}")
+        self.slider.set(self.angle)
+        self.status.configure(text=f"Status: {'enabled' if self.angle else 'disabled'}")
+        self.entry.delete(0 , ctk.END)
+        self.entry.insert(0 , str(self.angle))
 
     @staticmethod
     def read_float(text: str, default: float) -> float:

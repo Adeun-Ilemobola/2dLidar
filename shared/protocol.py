@@ -1,6 +1,6 @@
 # shared/protocol.py
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from typing import Literal, Union, Optional
 
 Axis = Literal["x", "y"]
@@ -49,3 +49,22 @@ class ScanProgress:
     total: int
 
 Event = Union[MotorState, Log, ScanProgress]
+
+
+# ---------- universal types ----------
+@dataclass
+class PointState:
+    x: float
+    y: float
+    distant: float
+
+    def update(self, **kwargs):
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+
+    def reset(self):
+        for f in fields(self):
+            setattr(self, f.name, f.default)
+
+
