@@ -2,9 +2,9 @@ import queue
 import customtkinter as ctk
 
 from embedded.worker import HardwareWorker
-from shared.protocol import MotorState, Log, ScanProgress , Command
+from shared.protocol import MotorState, Log, ScanProgress , Command , StopScan , StartScan
 
-from ui.components.motor_panel import MotorPanel  # make sure this is the CTk version, not Qt QWidget version
+from ui.components.motor_panel import MotorPanel
 
 
 class MainWindow(ctk.CTk):
@@ -21,12 +21,15 @@ class MainWindow(ctk.CTk):
         self.worker = HardwareWorker(self.cmd_q, self.event_q)
         self.worker.start()
 
+        #State verbals
+        self.scan_progress = False
+
         # Layout containers
         self.root_frame = ctk.CTkFrame(self)
         self.root_frame.pack(fill="both", expand=True, padx=12, pady=12)
 
         self.top_row = ctk.CTkFrame(self.root_frame)
-        self.top_row.pack(fill="x", padx=8, pady=8)
+        self.top_row.grid(row=0, column=0, sticky="nsew")
 
         # Motor panels (pass send_cmd function)
         self.motorX = MotorPanel(self.top_row, axis="x", send_cmd=self.send_cmd)
@@ -35,11 +38,33 @@ class MainWindow(ctk.CTk):
         self.motorX.pack(side="left", padx=8, pady=8)
         self.motorY.pack(side="left", padx=8, pady=8)
 
-        # Start polling events (CTk replacement for QTimer)
-        self.after(16, self.poll_events)
+        self.configure_panel = ctk.CTkFrame(self.root_frame)
+        self.configure_panel.grid(row=0, column=1, sticky="nsew" , padx=8)
+
+        self.scan_toggle = ctk.CTkButton(self.configure_panel, text="Start scan", command=self.run_scam)
+        self.reset_toggle = ctk.CTkButton(self.configure_panel, text="Rest", command=self.reset)
+
+        self.scan_toggle.grid(row=0, column=0, padx=8, pady=8)
+        self.reset_toggle.grid(row=1, column=0, padx=8, pady=8)
+
+        # Start polling events
+        self.after(16,func= self.poll_events)
 
         # Proper close handler
         self.protocol("WM_DELETE_WINDOW", self.on_close)
+
+    def run_scam(self):
+        if self.scan_progress:
+            self.scan_progress = False
+            self.send_cmd(StopScan())
+            self.scan_toggle.configure(text="Start Scan")
+        else:
+            self.send_cmd(StartScan())
+            self.scan_progress = True
+            self.scan_toggle.configure(text="Stop Scan")
+    def reset(self) -> None:
+        self.scan_progress = False
+        self.send_cmd(StopScan())
 
     def send_cmd(self, cmd:Command):
         self.cmd_q.put(cmd)

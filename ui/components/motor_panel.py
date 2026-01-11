@@ -60,6 +60,14 @@ class MotorPanel(ctk.CTkFrame):
 
     def on_slider_move(self, value: float):
         self.angle = float(value)
+        if self.offset_mode_var.get():
+            self.offset_deg = value
+            self.send_cmd(SetMotorOffset(self.axis, self.offset_deg))
+        else:
+            self.angle = value
+            self.slider.set(self.angle)
+            self.send_cmd(SetMotorAngle(self.axis, self.angle))
+
         self.update_angle_label()
         self.send_cmd(SetMotorAngle(self.axis, self.angle))
 
