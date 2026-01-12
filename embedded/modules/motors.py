@@ -28,7 +28,7 @@ class Motor:
 
         self.enabled: bool = False
         self.testMode: bool = False
-        self.offset_deg: float = 0.0
+        self.offset_deg: float = self.cfg.max_angle_deg / 2
         self.angle_deg: float = 0.0
 
     # ---------- public API ----------
@@ -37,9 +37,11 @@ class Motor:
             self.testMode = True
             self.enabled = activate
             self.apply_to_hardware()
-            self.angle_deg = self.cfg.max_angle_deg / 2
+            self.angle_deg = self.cfg.max_angle_deg / 3
             self.apply_to_hardware()
             self.angle_deg = self.cfg.max_angle_deg
+            self.apply_to_hardware()
+            self.angle_deg = self.cfg.min_angle_deg
             self.apply_to_hardware()
             self.testMode = False
 
@@ -47,9 +49,9 @@ class Motor:
         return self.angle_deg
 
     def set_angle(self, angle_deg: float) -> None:
-        self.angle_deg = self.clamp_angle(angle_deg)
         print(f"[DRV] angle_deg={angle_deg}")
         if self.enabled:
+            self.angle_deg = angle_deg
             self.apply_to_hardware()
 
     def get_offset(self) -> float:
@@ -57,9 +59,8 @@ class Motor:
 
     def set_offset(self, offset_deg: float) -> None:
         print(f"[DRV] offset_deg={offset_deg}")
-
-        self.offset_deg = offset_deg
         if self.enabled:
+            self.offset_deg = offset_deg
             self.apply_to_hardware()
 
     # ---------- helpers ----------

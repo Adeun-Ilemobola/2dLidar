@@ -8,6 +8,7 @@ from typing import Dict
 from queue import Queue
 
 from embedded.modules.motors import Motor, ServoConfig
+from embedded.modules.vl53l1x_sensor import VL53L1XSensor , VL53L1XConfig
 from shared.protocol import (
     Command, Event, Log,
     EnableMotor, SetMotorAngle, SetMotorOffset,
@@ -29,6 +30,7 @@ class System:
             "x": Motor(ServoConfig(pin=17), self.factory),
             "y": Motor(ServoConfig(pin=27), self.factory),
         }
+        self.lidar =VL53L1XSensor(VL53L1XConfig())
 
         self.is_scanning = False
         self.max_step = 2
@@ -44,6 +46,13 @@ class System:
     def configure_all(self) -> None:
         self.motors["x"].enable(True)
         self.motors["y"].enable(True)
+        #sleep
+        self.motors["x"].set_angle(-40)
+        self.motors["y"].set_angle(40)
+
+
+
+
         self.event_Queue.put(Log("System configured."))
 
     def handle(self, cmd: Command) -> None:
@@ -83,28 +92,23 @@ class System:
     def scan_mode(self):
 
         if self.is_scanning and not self.motors["x"].testMode and not self.motors["y"].testMode:
-            temp_disant_list = []
-            point = PointState(x=0, y=0, distant=0)
             self.event_Queue.put(Log("Scan started."))
-            # get two or three distant numbers and get the average if index one and index are the same just use the common one
-            for _ in range(3):
-                # get the distant
-                get_Distant = random.randint(10, 400)
-                point.update(distance=get_Distant)
-                temp_disant_list.append(point.distant)
 
-                # check if the array has two items then check if they're the same if they're the same use that value as the distant
-                if len(temp_disant_list) == 2:
-                    if temp_disant_list[0] == temp_disant_list[1]:
-                        print("[]: filter distant is the same for two items")
-                        point.update(distant=get_Distant)
-                        break
-            else:
-                # get the average distance of the three-point to create a true distance
-                point.update(distant=sum(temp_disant_list) / 3)
+
+            point = PointState(x=0, y=0, distant=0)
+            self.lidar.tick()
+
+            if (not self.lidar.collecting) and (self.lidar.readyMm is None):
+                self.lidar.request()
+                return
+
+            dist = self.lidar.take()
+
+            if dist is None:
+                return
 
             # Store the X and Y coordinates and the distant
-            point.update(x=self.motors["x"].get_angle() * 2, y=self.motors["y"].get_angle() * 2)
+            point.update(x=self.motors["x"].get_angle() * 2, y=self.motors["y"].get_angle() * 2 , distant=dist)
 
             # move the X and Y coordinate by its step
             self.current_X += 1
