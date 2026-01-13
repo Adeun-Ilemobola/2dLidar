@@ -29,7 +29,7 @@ class Motor:
 
         self.enabled: bool = False
         self.testMode: bool = False
-        self.offset_deg: float = self.cfg.max_angle_deg / 2
+        self.offset_deg: float = 0.0 
         self.angle_deg: float = 0.0
         self.last_physical: float | None = None
 
@@ -37,6 +37,8 @@ class Motor:
     def enable(self, activate: bool) -> None:
         if activate and not self.enabled:
             self.testMode = True
+            if self.offset_deg == 0.0:
+             self.offset_deg = 90.0
             self.apply_to_hardware(force=True)
         elif not activate and self.enabled:
             self.testMode = False
@@ -48,10 +50,14 @@ class Motor:
         return self.angle_deg
 
     def set_angle(self, angle_deg: float) -> None:
-        print(f"[DRV] angle_deg={angle_deg}")
-        if self.enabled:
-            self.angle_deg = angle_deg
-            self.apply_to_hardware()
+         if not self.enabled:
+            return
+
+         # keep physical in range
+         min_logical = self.cfg.min_angle_deg - self.offset_deg
+         max_logical = self.cfg.max_angle_deg - self.offset_deg
+         self.angle_deg = max(min_logical, min(angle_deg, max_logical))
+         self.apply_to_hardware()
 
     def get_offset(self) -> float:
         return self.offset_deg
@@ -65,11 +71,12 @@ class Motor:
     # ---------- helpers ----------
     def apply_to_hardware(self, force: bool = False) -> None:
         # real angle = requested + offset
-        physical_deg = self.clamp_angle(self.angle_deg + self.offset_deg)
+        physical_deg = self.clamp_physical(self.angle_deg + self.offset_deg)
         if (not force) and (self.last_physical is not None):
             if abs(physical_deg - self.last_physical) < self.cfg.deadband_deg:
                 return
         self.Servo.angle = physical_deg 
+        self.last_physical = physical_deg
 
     def angle_to_pulse_us(self, angle_deg: float) -> int:
         ratio = angle_deg * (self.cfg.max_pulse_us / self.cfg.max_angle_deg)
@@ -80,5 +87,5 @@ class Motor:
         ratio = (self.cfg.max_angle_deg / self.cfg.max_pulse_us)
         return float(ratio * pulse)
 
-    def clamp_angle(self, a: float) -> float:
-        return max(0.0, min(a, self.cfg.max_angle_deg))
+    def clamp_physical(self, physical: float) -> float:
+        return max(self.cfg.min_angle_deg, min(physical, self.cfg.max_angle_deg))
