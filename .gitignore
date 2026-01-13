@@ -1,0 +1,60 @@
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+.eggs/
+pip-wheel-metadata/
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+pytestdebug.log
+
+# ===== Virtual environments =====
+.venv/
+venv/
+env/
+
+# ===== VS Code =====
+.vscode/
+!.vscode/launch.json
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# ===== PyCharm / JetBrains =====
+.idea/
+
+# ===== macOS =====
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.Spotlight-V100
+.Trashes
+
+# ===== Logs / runtime =====
+*.log
+*.pid
+*.sqlite3
+*.db
+
+# ===== Local config / secrets =====
+.env
+.env.*
+*.pem
+*.key
+
+# ===== Optional: generated output folders (uncomment if you have them) =====
+# output/
+# data/
+# captures/
+# scans/
