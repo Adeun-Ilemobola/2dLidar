@@ -1,7 +1,7 @@
 # embedded/modules/motor.py
 
 from gpiozero import AngularServo
-from gpiozero.pins.pigpio import PiGPIOFactory
+from gpiozero.pins.lgpio import LGPIOFactory
 from dataclasses import dataclass
 
 
@@ -15,7 +15,7 @@ class ServoConfig:
 
 
 class Motor:
-    def __init__(self, cfg: ServoConfig, factory: PiGPIOFactory) -> None:
+    def __init__(self, cfg: ServoConfig, factory: LGPIOFactory) -> None:
         self.cfg = cfg
         self.Servo = AngularServo(
             pin=cfg.pin,

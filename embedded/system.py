@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 import random
-
-from gpiozero.pins.pigpio import PiGPIOFactory
+from gpiozero import Device
+from gpiozero.pins.lgpio import LGPIOFactory
 from typing import Dict
 from queue import Queue
 
@@ -24,7 +24,7 @@ def clap(_max, val) -> float:
 class System:
     def __init__(self, event_q: "Queue[Event]"):
         self.event_Queue = event_q
-        self.factory = PiGPIOFactory()
+        self.factory = LGPIOFactory()
 
         self.motors: Dict[str, Motor] = {
             "x": Motor(ServoConfig(pin=17), self.factory),
