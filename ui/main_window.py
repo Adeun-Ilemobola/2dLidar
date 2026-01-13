@@ -48,7 +48,7 @@ class MainWindow(ctk.CTk):
         self.reset_toggle.grid(row=1, column=0, padx=8, pady=8)
 
         # Start polling events
-        self.after(16,func= self.poll_events)
+        self.after(20,func= self.poll_events)
 
         # Proper close handler
         self.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -98,7 +98,7 @@ class MainWindow(ctk.CTk):
                 pass
 
         # Schedule next poll
-        self.after(16, self.poll_events)
+        self.after(20, self.poll_events)
 
     def on_close(self):
         try:

@@ -102,7 +102,7 @@ class MotorPanel(ctk.CTkFrame):
     def on_offset_checkbox(self):
         if self.offset_mode_var.get():
             # it's true do something
-            self.slider.configure(from_=0, to=270)
+            self.slider.configure(from_=0, to=180)
             self.slider.set(self.offset_deg)
             self.entry.delete(0, ctk.END)
             self.entry.insert(0, str(self.offset_deg))

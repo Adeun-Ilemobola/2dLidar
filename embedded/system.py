@@ -27,8 +27,8 @@ class System:
         self.factory = LGPIOFactory()
 
         self.motors: Dict[str, Motor] = {
-            "x": Motor(ServoConfig(pin=17), self.factory),
-            "y": Motor(ServoConfig(pin=27), self.factory),
+            "x": Motor(ServoConfig(pin=12), self.factory),
+            "y": Motor(ServoConfig(pin=18), self.factory),
         }
         self.lidar =VL53L1XSensor(VL53L1XConfig())
 
@@ -49,9 +49,6 @@ class System:
         #sleep
         self.motors["x"].set_angle(-40)
         self.motors["y"].set_angle(40)
-
-
-
 
         self.event_Queue.put(Log("System configured."))
 

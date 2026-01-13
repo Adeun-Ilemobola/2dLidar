@@ -8,10 +8,11 @@ from dataclasses import dataclass
 @dataclass
 class ServoConfig:
     pin: int
-    min_pulse_us: int = 500
-    max_pulse_us: int = 2500
-    max_angle_deg: float = 270.0
+    min_pulse_us: int = 1000
+    max_pulse_us: int = 2000
+    max_angle_deg: float = 180
     min_angle_deg: float = 0.0
+    deadband_deg: float = 0.2 # minimum change to apply
 
 
 class Motor:
@@ -30,20 +31,18 @@ class Motor:
         self.testMode: bool = False
         self.offset_deg: float = self.cfg.max_angle_deg / 2
         self.angle_deg: float = 0.0
+        self.last_physical: float | None = None
 
     # ---------- public API ----------
     def enable(self, activate: bool) -> None:
-        if activate:
+        if activate and not self.enabled:
             self.testMode = True
-            self.enabled = activate
-            self.apply_to_hardware()
-            self.angle_deg = self.cfg.max_angle_deg / 3
-            self.apply_to_hardware()
-            self.angle_deg = self.cfg.max_angle_deg
-            self.apply_to_hardware()
-            self.angle_deg = self.cfg.min_angle_deg
-            self.apply_to_hardware()
+            self.apply_to_hardware(force=True)
+        elif not activate and self.enabled:
             self.testMode = False
+            self.Servo.detach()
+            self.last_physical = None
+            
 
     def get_angle(self) -> float:
         return self.angle_deg
@@ -64,11 +63,13 @@ class Motor:
             self.apply_to_hardware()
 
     # ---------- helpers ----------
-    def apply_to_hardware(self) -> None:
+    def apply_to_hardware(self, force: bool = False) -> None:
         # real angle = requested + offset
         physical_deg = self.clamp_angle(self.angle_deg + self.offset_deg)
-        pulse = self.angle_to_pulse_us(physical_deg)
-        self.Servo.angle = pulse / 1_000_000
+        if (not force) and (self.last_physical is not None):
+            if abs(physical_deg - self.last_physical) < self.cfg.deadband_deg:
+                return
+        self.Servo.angle = physical_deg 
 
     def angle_to_pulse_us(self, angle_deg: float) -> int:
         ratio = angle_deg * (self.cfg.max_pulse_us / self.cfg.max_angle_deg)
