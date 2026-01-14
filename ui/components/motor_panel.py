@@ -83,8 +83,6 @@ class MotorPanel(ctk.CTkFrame):
         self.angle = angle_deg
         self.offset_deg = offset_deg
         self.slider.set(self.angle)
-
-        self.status.configure(text=f"Status: {'enabled' if enabled else 'disabled'}")
         self.update_angle_label()
 
     # ---------- helpers ----------

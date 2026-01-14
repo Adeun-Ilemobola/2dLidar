@@ -4,14 +4,14 @@ from __future__ import annotations
 import random
 from gpiozero import Device
 from gpiozero.pins.lgpio import LGPIOFactory
-from typing import Dict
+from typing import Dict, List
 from queue import Queue
 
 from embedded.modules.motors import Motor, ServoConfig
 from embedded.modules.vl53l1x_sensor import VL53L1XSensor , VL53L1XConfig
 from shared.protocol import (
     Command, Event, Log,
-    EnableMotor, SetMotorAngle, SetMotorOffset,
+    EnableMotor, ScanAreaGrid, SetMotorAngle, SetMotorOffset,
     StartScan, StopScan,
     MotorState, ScanProgress , PointState
 )
@@ -41,6 +41,9 @@ class System:
         self.scan_x = 0.0
         self.scan_y = 0.0
         self.scan_direction = 1
+
+        self.samples_point : List[PointState] = []
+        self.point_grid : List[List[PointState]] = []
 
         self.configure_all()
 
@@ -107,11 +110,16 @@ class System:
             if dist is None:
                 return
 
-            # Store the X and Y coordinates and the distant
+            # get current motor angles
             current_x = self.motors["x"].get_angle()
             current_y = self.motors["y"].get_angle()
-        
-            self.event_Queue.put(PointState(x=current_x, y=current_y, distant=dist))
+
+            # store the point
+            self.samples_point.append(PointState(
+                x=current_x,
+                y=current_y,
+                distant=dist
+            ))
 
             # Calculate the next position
             next_x = self.scan_x + (self.step_size * self.scan_direction)
@@ -124,7 +132,8 @@ class System:
             # We hit a wall: Time to move Y down and flip X direction
                 self.scan_y += self.step_size
                 self.scan_direction *= -1 # Flip direction
-            
+                self.point_grid.append(self.samples_point)
+                self.samples_point = []  # Clear for next row
             # Clamp X to the edge so we don't overshoot
                 self.scan_x = self.scan_range_x[1] if hit_right else self.scan_range_x[0]
             else:
@@ -135,6 +144,7 @@ class System:
             # Check Y Boundaries
             if self.scan_y > self.scan_range_y[1]:
                self.is_scanning = False
+               self.send_grid()
                self.event_Queue.put(Log("Scan Complete."))
                return
         
@@ -150,3 +160,14 @@ class System:
             offset_deg=m.get_offset(),
             enabled=m.enabled,
         ))
+
+    def send_grid(self) -> None:
+        self.event_Queue.put(ScanAreaGrid(points=self.point_grid))
+        self.point_grid = []  # Clear after sending
+        #reinitialize for next scan
+        self.scan_x = self.scan_range_x[0]
+        self.scan_y = self.scan_range_y[0]
+        self.scan_direction = 1
+        self.motors["x"].set_angle(self.scan_x)
+        self.motors["y"].set_angle(self.scan_y)
+

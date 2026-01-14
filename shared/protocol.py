@@ -1,7 +1,7 @@
 # shared/protocol.py
 from __future__ import annotations
 from dataclasses import dataclass, fields
-from typing import Literal, Union, Optional
+from typing import List, Literal, Union, Optional
 
 Axis = Literal["x", "y"]
 
@@ -62,6 +62,11 @@ class PointState:
     def reset(self):
         for f in fields(self):
             setattr(self, f.name, f.default)
+
+
+@dataclass(frozen=True, slots=True)
+class ScanAreaGrid:
+    points: List[List[PointState]]
 
 
 Event = Union[MotorState, Log, ScanProgress , PointState]

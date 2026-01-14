@@ -30,12 +30,16 @@ class VL53L1XSensor:
 
 
     def start(self) -> None:
-        import board
-        import busio
-        import adafruit_vl53l1x
+        try:
+            import board
+            import busio
+            import adafruit_vl53l1x
 
-        i2c = busio.I2C(board.SCL, board.SDA)
-        self.sensor = adafruit_vl53l1x.VL53L1X(i2c)
+            i2c = busio.I2C(board.SCL, board.SDA)
+            self.sensor = adafruit_vl53l1x.VL53L1X(i2c)
+        except Exception as e:
+            print(f"VL53L1XSensor start error: {e}")
+            self.sensor = None
 
 
     def readOnceMm(self) -> Optional[float]:
@@ -60,8 +64,7 @@ class VL53L1XSensor:
         Called FROM System.tick().
         It tries to take ONE reading per call and stores progress.
         """
-        if not self.collecting:
-            print("sensor not collect mode")
+        if not self.collecting and self.sensor.data_ready:
             return
 
         v = self.readOnceMm()
