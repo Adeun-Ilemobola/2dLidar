@@ -67,8 +67,9 @@ class Motor:
 
     def set_offset(self, offset_deg: float) -> None:
         print(f"[DRV] offset_deg={offset_deg}")
+        self.offset_deg = offset_deg
         if self.enabled:
-            self.offset_deg = offset_deg
+           
             self.apply_to_hardware(force=True)
 
     # ---------- helpers ----------
