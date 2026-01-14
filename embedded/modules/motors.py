@@ -8,8 +8,8 @@ from dataclasses import dataclass
 @dataclass
 class ServoConfig:
     pin: int
-    min_pulse_us: int = 1000
-    max_pulse_us: int = 2000
+    min_pulse_us: int = 500
+    max_pulse_us: int = 2500
     max_angle_deg: float = 180
     min_angle_deg: float = 0.0
     deadband_deg: float = 0.2 # minimum change to apply
@@ -30,7 +30,7 @@ class Motor:
 
         self.enabled: bool = False
         self.testMode: bool = False
-        self.offset_deg: float = 0.0 
+        self.offset_deg: float = self.cfg.max_angle_deg / 2 
         self.angle_deg: float = 0.0
         self.last_physical: float | None = None
 
@@ -68,6 +68,7 @@ class Motor:
     def set_offset(self, offset_deg: float) -> None:
         print(f"[DRV] offset_deg={offset_deg}")
         if self.enabled:
+            self.offset_deg = offset_deg
             self.apply_to_hardware(force=True)
 
     # ---------- helpers ----------

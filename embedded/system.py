@@ -55,6 +55,8 @@ class System:
         # # Center the motors
         # self.motors["x"].set_angle(0)
         # self.motors["y"].set_angle(0)
+        self.publish_motor("x")
+        self.publish_motor("y")
        
 
         self.event_Queue.put(Log("System configured."))
@@ -91,8 +93,8 @@ class System:
 
     def tick(self) -> None:
         """Called repeatedly by the worker thread."""
-        if  self.is_scanning:
-            self.scan_mode()
+        # if  self.is_scanning:
+        #     self.scan_mode()
 
 
 

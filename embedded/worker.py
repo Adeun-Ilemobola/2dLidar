@@ -26,7 +26,7 @@ class HardwareWorker(threading.Thread):
             while not self.stop_event.is_set():
                 # 1) handle commands (non-blocking)
                 try:
-                    cmd = self.cmd_q.get(timeout=0.1)  # 100ms tick
+                    cmd = self.cmd_q.get(timeout=0.02)  # 20ms tick
                     self.system.handle(cmd)
                 except queue.Empty:
                     pass
