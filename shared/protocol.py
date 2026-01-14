@@ -48,11 +48,7 @@ class ScanProgress:
     current: int
     total: int
 
-Event = Union[MotorState, Log, ScanProgress]
-
-
-# ---------- universal types ----------
-@dataclass
+@dataclass(frozen=True, slots=True)
 class PointState:
     x: float
     y: float
@@ -66,5 +62,11 @@ class PointState:
     def reset(self):
         for f in fields(self):
             setattr(self, f.name, f.default)
+
+
+Event = Union[MotorState, Log, ScanProgress , PointState]
+
+
+# ---------- universal types ----------
 
 

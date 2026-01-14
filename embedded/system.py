@@ -33,20 +33,25 @@ class System:
         self.lidar =VL53L1XSensor(VL53L1XConfig())
 
         self.is_scanning = False
-        self.max_step = 2
-        self.max_scan_angle_deg_X = 40 / self.max_step
-        self.max_scan_angle_deg_Y = 40  / self.max_step
-        self.current_X = 0
-        self.current_Y = 0
-        self.Finished_firstNode =True
-        self.move_axis_y = False
+        self.step_size = 2
+        self.scan_range_x = (-30.0, 30.0) 
+        self.scan_range_y = (-20.0, 20.0)
+
+
+        self.scan_x = 0.0
+        self.scan_y = 0.0
+        self.scan_direction = 1
 
         self.configure_all()
 
     def configure_all(self) -> None:
+        """Home the system on startup."""
         self.motors["x"].enable(True)
         self.motors["y"].enable(True)
-        #sleep
+        
+        # Center the motors
+        self.motors["x"].set_angle(0)
+        self.motors["y"].set_angle(0)
        
 
         self.event_Queue.put(Log("System configured."))
@@ -69,6 +74,9 @@ class System:
 
         elif isinstance(cmd, StartScan):
             self.is_scanning = True
+            self.scan_x = self.scan_range_x[0]
+            self.scan_y = self.scan_range_y[0]
+            self.scan_direction = 1 
             self.event_Queue.put(Log("Scan started."))
 
         elif isinstance(cmd, StopScan):
@@ -80,8 +88,8 @@ class System:
 
     def tick(self) -> None:
         """Called repeatedly by the worker thread."""
-        # if  self.is_scanning:
-        #     self.scan_mode()
+        if  self.is_scanning:
+            self.scan_mode()
 
 
 
@@ -89,9 +97,6 @@ class System:
 
         if self.is_scanning and not self.motors["x"].testMode and not self.motors["y"].testMode:
             self.event_Queue.put(Log("Scan started."))
-
-
-            point = PointState(x=0, y=0, distant=0)
             self.lidar.tick()
 
             if (not self.lidar.collecting) and (self.lidar.readyMm is None):
@@ -99,45 +104,44 @@ class System:
                 return
 
             dist = self.lidar.take()
-
             if dist is None:
                 return
 
             # Store the X and Y coordinates and the distant
-            point.update(x=self.motors["x"].get_angle() * 2, y=self.motors["y"].get_angle() * 2 , distant=dist)
+            current_x = self.motors["x"].get_angle()
+            current_y = self.motors["y"].get_angle()
+        
+            self.event_Queue.put(PointState(x=current_x, y=current_y, distant=dist))
 
-            # move the X and Y coordinate by its step
-            self.current_X += 1
-            self.motors["x"].set_angle(clap(self.max_scan_angle_deg_X,
-                                            self.motors["x"].get_angle() + (self.max_step * self.flip_axis_x())))
+            # Calculate the next position
+            next_x = self.scan_x + (self.step_size * self.scan_direction)
 
-            # make sure when the X is at the last step move down, and when it reaches the final step and the scan
-            if not self.Finished_firstNode:
-                if not self.current_Y == self.max_scan_angle_deg_Y:
-                    if self.move_axis_y:
-                        self.current_Y += 1
-                        self.motors["y"].set_angle(self.motors["y"].get_angle() - self.max_step)
-                else:
-                    self.is_scanning = False
-            # after completing a point stort the point in an array
+            # Check X Boundaries
+            hit_right = (next_x >= self.scan_range_x[1])
+            hit_left  = (next_x <= self.scan_range_x[0])
 
-            self.Finished_firstNode = False
+            if hit_right or hit_left:
+            # We hit a wall: Time to move Y down and flip X direction
+                self.scan_y += self.step_size
+                self.scan_direction *= -1 # Flip direction
+            
+            # Clamp X to the edge so we don't overshoot
+                self.scan_x = self.scan_range_x[1] if hit_right else self.scan_range_x[0]
+            else:
+            # Normal move
+                self.scan_x = next_x
+            
 
-    def flip_axis_x(self) -> int:
-           if self.Finished_firstNode:
-               self.move_axis_y = False
-               return 1
-           else:
-               if self.current_X == 0:
-                   self.move_axis_y = True
-                   return 1
-               elif self.current_X == self.max_scan_angle_deg_X:
-                   self.move_axis_y = True
-                   return -1
-               else:
-                   self.move_axis_y = False
-                   return 1
+            # Check Y Boundaries
+            if self.scan_y > self.scan_range_y[1]:
+               self.is_scanning = False
+               self.event_Queue.put(Log("Scan Complete."))
+               return
+        
+            self.motors["x"].set_angle(self.scan_x)
+            self.motors["y"].set_angle(self.scan_y)
 
+           
     def publish_motor(self, axis: str) -> None:
         m = self.motors[axis]
         self.event_Queue.put(MotorState(

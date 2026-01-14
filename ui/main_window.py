@@ -2,7 +2,7 @@ import queue
 import customtkinter as ctk
 
 from embedded.worker import HardwareWorker
-from shared.protocol import MotorState, Log, ScanProgress , Command , StopScan , StartScan
+from shared.protocol import MotorState, Log, ScanProgress , Command , StopScan , StartScan , PointState
 
 from ui.components.motor_panel import MotorPanel
 
@@ -48,7 +48,7 @@ class MainWindow(ctk.CTk):
         self.reset_toggle.grid(row=1, column=0, padx=8, pady=8)
 
         # Start polling events
-        self.after(20,func= self.poll_events)
+        self.after(20,self.poll_events)
 
         # Proper close handler
         self.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -93,8 +93,11 @@ class MainWindow(ctk.CTk):
             elif isinstance(ev, Log):
                 print(ev.message)
 
+            elif isinstance(ev, PointState):
+                print(f"PointState: x={ev.x}, y={ev.y}, distant={ev.distant}")
+                pass
             elif isinstance(ev, ScanProgress):
-                # update a progress bar later
+                print(f"Scan progress: {ev.current}/{ev.total}")
                 pass
 
         # Schedule next poll

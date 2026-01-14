@@ -25,6 +25,7 @@ class Motor:
             min_pulse_width=cfg.min_pulse_us / 1_000_000,
             max_pulse_width=cfg.max_pulse_us / 1_000_000,
             pin_factory=factory,
+            initial_angle=None
         )
 
         self.enabled: bool = False
@@ -36,11 +37,13 @@ class Motor:
     # ---------- public API ----------
     def enable(self, activate: bool) -> None:
         if activate and not self.enabled:
+            self.enabled = True
             self.testMode = True
             if self.offset_deg == 0.0:
              self.offset_deg = 90.0
             self.apply_to_hardware(force=True)
         elif not activate and self.enabled:
+            self.enabled = False
             self.testMode = False
             self.Servo.detach()
             self.last_physical = None
@@ -65,8 +68,7 @@ class Motor:
     def set_offset(self, offset_deg: float) -> None:
         print(f"[DRV] offset_deg={offset_deg}")
         if self.enabled:
-            self.offset_deg = offset_deg
-            self.apply_to_hardware()
+            self.apply_to_hardware(force=True)
 
     # ---------- helpers ----------
     def apply_to_hardware(self, force: bool = False) -> None:
