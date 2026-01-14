@@ -56,10 +56,10 @@ class Motor:
          if not self.enabled:
             return
 
-        #  # keep physical in range
-        #  min_logical = self.cfg.min_angle_deg - self.offset_deg
-        #  max_logical = self.cfg.max_angle_deg - self.offset_deg
-        #  self.angle_deg = max(min_logical, min(angle_deg, max_logical))
+         # keep physical in range
+         min_logical = self.cfg.min_angle_deg - self.offset_deg
+         max_logical = self.cfg.max_angle_deg - self.offset_deg
+         self.angle_deg = max(min_logical, min(angle_deg, max_logical))
          self.apply_to_hardware()
 
     def get_offset(self) -> float:
