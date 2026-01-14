@@ -39,8 +39,7 @@ class Motor:
         if activate and not self.enabled:
             self.enabled = True
             self.testMode = True
-            if self.offset_deg == 0.0:
-             self.offset_deg = 90.0
+            
             self.apply_to_hardware(force=True)
         elif not activate and self.enabled:
             self.enabled = False
@@ -55,6 +54,7 @@ class Motor:
     def set_angle(self, angle_deg: float) -> None:
          if not self.enabled:
             return
+         print(f"[DRV] angle_deg={angle_deg}")
 
          # keep physical in range
          min_logical = self.cfg.min_angle_deg - self.offset_deg

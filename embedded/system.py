@@ -52,9 +52,9 @@ class System:
         self.motors["x"].enable(True)
         self.motors["y"].enable(True)
         
-        # Center the motors
-        self.motors["x"].set_angle(0)
-        self.motors["y"].set_angle(0)
+        # # Center the motors
+        # self.motors["x"].set_angle(0)
+        # self.motors["y"].set_angle(0)
        
 
         self.event_Queue.put(Log("System configured."))
