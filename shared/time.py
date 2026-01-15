@@ -19,6 +19,8 @@ class Timer:
         self.start()
 
     def start(self):
+        if self.run :
+            return
         if self.sim_time  in (0.0 , None):
             return
         now = time.perf_counter()
