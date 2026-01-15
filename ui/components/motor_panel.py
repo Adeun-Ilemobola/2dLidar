@@ -26,6 +26,7 @@ class MotorPanel(ctk.CTkFrame):
         self.slider.set(0)
 
         self.entry = ctk.CTkEntry(self, width=95, placeholder_text="Angle")
+        self.entry.bind("<Return>", lambda event: self.on_send_button())
         self.send_button = ctk.CTkButton(self, text="Send New Angle", command=self.on_send_button)
 
         self.offset_checkbox = ctk.CTkCheckBox(self, text="Offset Mode" , variable=self.offset_mode_var , onvalue=True , offvalue=False , command=self.on_offset_checkbox)
