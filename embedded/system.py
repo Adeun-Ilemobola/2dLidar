@@ -17,8 +17,10 @@ from shared.protocol import (
 )
 
 
-def clap(_max, val) -> float:
+def clamp(_max, val) -> float:
     return max(0.0, min(_max, val))
+def clamp_range(min_val, val, max_val) -> float:
+    return max(min_val, min(max_val, val))
 
 
 class System:
@@ -28,7 +30,7 @@ class System:
 
         self.motors: Dict[str, Motor] = {
             "x": Motor(ServoConfig(pin=12), self.factory),
-            "y": Motor(ServoConfig(pin=17), self.factory),
+            "y": Motor(ServoConfig(pin=16), self.factory),
         }
         self.lidar =VL53L1XSensor(VL53L1XConfig())
 
@@ -44,6 +46,20 @@ class System:
 
         self.samples_point : List[PointState] = []
         self.point_grid : List[List[PointState]] = []
+
+
+
+        # the test mode enables continuous movement for testing
+        self.sleep_time_max_x = 2  # seconds
+        self.sleep_time_max_y = 2.5  # seconds
+
+        self.current_sleep_x = 0.0
+        self.current_sleep_y = 0.0
+
+        self.max_lap = 50
+        self.current_lap = 0
+
+
 
         self.configure_all()
 
@@ -93,9 +109,40 @@ class System:
 
     def tick(self) -> None:
         """Called repeatedly by the worker thread."""
-        # if  self.is_scanning:
-        #     self.scan_mode()
+        if  self.is_scanning:
+            self.testScanMode()
 
+    def testScanMode(self):
+
+        if self.current_sleep_x < self.sleep_time_max_x:
+            self.current_sleep_x += 0.07
+
+            new_angle_x = clamp_range(
+                -30.0 ,
+                random.uniform(-30.0, 30.0),
+                30.0
+            )
+
+            self.motors["x"].set_angle(new_angle_x)
+
+        elif self.current_sleep_y < self.sleep_time_max_y:
+            self.current_sleep_y += 0.07
+
+            new_angle_y = clamp_range(
+                -20.0 ,
+                random.uniform(-20.0, 20.0),
+                20.0
+            )
+
+            self.motors["y"].set_angle(new_angle_y)
+        self.publish_motor("x")
+        self.publish_motor("y")
+        self.current_lap += 1
+        if self.current_lap >= self.max_lap:
+            self.current_lap = 0
+            self.current_sleep_x = 0.0
+            self.current_sleep_y = 0.0
+            return
 
 
     def scan_mode(self):
@@ -152,8 +199,7 @@ class System:
         
             self.motors["x"].set_angle(self.scan_x)
             self.motors["y"].set_angle(self.scan_y)
-
-           
+    
     def publish_motor(self, axis: str) -> None:
         m = self.motors[axis]
         self.event_Queue.put(MotorState(
@@ -172,4 +218,7 @@ class System:
         self.scan_direction = 1
         self.motors["x"].set_angle(self.scan_x)
         self.motors["y"].set_angle(self.scan_y)
+    
+    # ---------- helpers ----------
+    
 

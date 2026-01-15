@@ -1,5 +1,6 @@
 import customtkinter as ctk
 from shared.protocol import Axis, SetMotorAngle, SetMotorOffset, EnableMotor  # use your real command names
+from decimal import Decimal, getcontext
 
 class MotorPanel(ctk.CTkFrame):
     def __init__(self, parent, axis: Axis, send_cmd, *, width=360, height=160):
@@ -70,11 +71,11 @@ class MotorPanel(ctk.CTkFrame):
 
     def on_slider_move(self, value: float):
         if self.offset_mode_var.get():
-            self.offset_deg = float(value)
+            self.offset_deg = float(Decimal(value).quantize(Decimal('0.1')))
             self.slider.set(self.offset_deg)
             self.send_cmd(SetMotorOffset(self.axis, self.offset_deg))
         else:
-            self.angle = float(value)
+            self.angle = float(Decimal(value).quantize(Decimal('0.1')))
             self.slider.set(self.angle)
             self.send_cmd(SetMotorAngle(self.axis, self.angle))
 
@@ -93,6 +94,7 @@ class MotorPanel(ctk.CTkFrame):
         if not self.dragging:
             if self.offset_mode_var.get():
                 # If in Offset Mode, update to the OFFSET value
+                self.angle = 0
                 self.slider.set(self.offset_deg)
             else:
                 # If in Normal Mode, update to the ANGLE value
