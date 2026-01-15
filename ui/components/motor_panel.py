@@ -20,6 +20,9 @@ class MotorPanel(ctk.CTkFrame):
         self.angle_label = ctk.CTkLabel(self, text=f"Angle: {self.angle:.2f}", text_color="#aaaaaa")
 
         self.slider = ctk.CTkSlider(self, from_=self.max_min[1], to=self.max_min[0], command=self.on_slider_move)
+        self.dragging = False
+        self.slider.bind("<Button-1>", self.start_drag)
+        self.slider.bind("<ButtonRelease-1>", self.stop_drag)
         self.slider.set(0)
 
         self.entry = ctk.CTkEntry(self, width=95, placeholder_text="Angle")
@@ -75,14 +78,24 @@ class MotorPanel(ctk.CTkFrame):
             self.send_cmd(SetMotorAngle(self.axis, self.angle))
 
         self.update_angle_label()
+    def start_drag(self, event):
+        self.dragging = True
 
+    def stop_drag(self, event):
+        self.dragging = False
 
     # ---------- Worker -> UI updates ----------
     def apply_motor_state(self, *, angle_deg: float, offset_deg: float, enabled: bool):
         """Call this from your UI event handler (after polling event_queue)."""
         self.angle = angle_deg
         self.offset_deg = offset_deg
-        self.slider.set(self.angle)
+        if not self.dragging:
+            if self.offset_mode_var.get():
+                # If in Offset Mode, update to the OFFSET value
+                self.slider.set(self.offset_deg)
+            else:
+                # If in Normal Mode, update to the ANGLE value
+                self.slider.set(self.angle)
         self.update_angle_label()
 
     # ---------- helpers ----------

@@ -1,3 +1,4 @@
+"""Main application window. Ui/main_window.py """
 import queue
 import customtkinter as ctk
 
