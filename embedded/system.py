@@ -2,10 +2,11 @@
 from __future__ import annotations
 
 import random
-from gpiozero import Device
-from gpiozero.pins.lgpio import LGPIOFactory
+
 from typing import Dict, List
 from queue import Queue
+
+
 
 from embedded.modules.motors import Motor, ServoConfig
 from embedded.modules.vl53l1x_sensor import VL53L1XSensor , VL53L1XConfig
@@ -26,11 +27,11 @@ def clamp_range(min_val, val, max_val) -> float:
 class System:
     def __init__(self, event_q: "Queue[Event]"):
         self.event_Queue = event_q
-        self.factory = LGPIOFactory()
+       
 
         self.motors: Dict[str, Motor] = {
-            "x": Motor(ServoConfig(pin=12), self.factory),
-            "y": Motor(ServoConfig(pin=16), self.factory),
+            "x": Motor(ServoConfig(channel=0),),
+            "y": Motor(ServoConfig(channel=3), ),
         }
         self.lidar =VL53L1XSensor(VL53L1XConfig())
 

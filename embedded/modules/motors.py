@@ -1,32 +1,44 @@
 # embedded/modules/motor.py
 
+from typing import Optional
 from gpiozero import AngularServo
 from gpiozero.pins.lgpio import LGPIOFactory
+
+import board
+import busio
+from adafruit_pca9685 import PCA9685
+from adafruit_motor import servo
+
 from dataclasses import dataclass
 
 
 @dataclass
 class ServoConfig:
-    pin: int
-    min_pulse_us: int = 500
-    max_pulse_us: int = 2500
-    max_angle_deg: float = 180
-    min_angle_deg: float = 0.0
-    deadband_deg: float = 0.2 # minimum change to apply
+     channel: int
+     address: int = 0x40
+     frequency: int = 50
 
+    # signal tuning (microseconds)
+     min_pulse_us: int = 500
+     max_pulse_us: int = 2500
+
+    # physical safety clamp
+     min_angle_deg: float = 0.0
+     max_angle_deg: float = 180.0
+
+     deadband_deg: float = 0.2  # minimum change to apply
 
 class Motor:
-    def __init__(self, cfg: ServoConfig, factory: LGPIOFactory) -> None:
+    def __init__(self, cfg: ServoConfig) -> None:
         self.cfg = cfg
-        self.Servo = AngularServo(
-            pin=cfg.pin,
-            min_angle=cfg.min_angle_deg,
-            max_angle=cfg.max_angle_deg,
-            min_pulse_width=cfg.min_pulse_us / 1_000_000,
-            max_pulse_width=cfg.max_pulse_us / 1_000_000,
-            pin_factory=factory,
-            initial_angle=None
-        )
+
+        # Hardware handles
+        self.i2c = busio.I2C(board.SCL, board.SDA)
+        self.pca = PCA9685(self.i2c, address=self.cfg.address)
+        self.pca.frequency = self.cfg.frequency
+        self.pwm_channel = self.pca.channels[self.cfg.channel]
+
+        self.Servo :Optional[servo.Servo] = None
 
         self.enabled: bool = False
         self.testMode: bool = False
@@ -36,23 +48,32 @@ class Motor:
 
     # ---------- public API ----------
     def enable(self, activate: bool) -> None:
-        if activate and not self.enabled:
+       
+       if activate and not self.enabled:
+            # Create the Servo object once when enabling
+            self.Servo = servo.Servo(
+                self.pwm_channel,
+                min_pulse=self.cfg.min_pulse_us,
+                max_pulse=self.cfg.max_pulse_us,
+                actuation_range=self.cfg.max_angle_deg,  # angle range exposed to .angle
+            )
             self.enabled = True
-            self.testMode = True
-            
             self.apply_to_hardware(force=True)
-        elif not activate and self.enabled:
+        
+
+       elif (not activate) and self.enabled:
             self.enabled = False
-            self.testMode = False
-            self.Servo.detach()
             self.last_physical = None
+
+            self.pwm_channel.duty_cycle = 0
+            self.Servo = None
             
 
     def get_angle(self) -> float:
         return self.angle_deg
 
     def set_angle(self, angle_deg: float) -> None:
-         if not self.enabled:
+         if not self.enabled and self.Servo is not None:
             return
          print(f"[DRV] angle_deg={angle_deg}")
 
@@ -93,3 +114,4 @@ class Motor:
 
     def clamp_physical(self, physical: float) -> float:
         return max(self.cfg.min_angle_deg, min(physical, self.cfg.max_angle_deg))
+   

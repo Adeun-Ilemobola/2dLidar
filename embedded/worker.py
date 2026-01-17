@@ -24,7 +24,7 @@ class HardwareWorker(threading.Thread):
             self.event_q.put(Log("Hardware worker started."))
 
             while not self.stop_event.is_set():
-                # 1) handle commands (non-blocking)
+                # 1)  (non-blocking)
                 try:
                     cmd = self.cmd_q.get(timeout=0.02)  # 20ms tick
                     self.system.handle(cmd)
