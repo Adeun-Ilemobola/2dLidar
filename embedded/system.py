@@ -5,6 +5,7 @@ import random
 
 from typing import Dict, List
 from queue import Queue
+from shared.time import Timer
 
 
 
@@ -37,8 +38,8 @@ class System:
 
         self.is_scanning = False
         self.step_size = 2
-        self.scan_range_x = (-30.0, 30.0) 
-        self.scan_range_y = (-20.0, 20.0)
+        self.scan_range_x = (-35.0, 35.0) 
+        self.scan_range_y = (-35.0, 35.0)
 
 
         self.scan_x = 0.0
@@ -51,11 +52,15 @@ class System:
 
 
         # the test mode enables continuous movement for testing
-        self.sleep_time_max_x = 2  # seconds
-        self.sleep_time_max_y = 2.5  # seconds
+        # self.sleep_time_max_x = 2  # seconds
+        # self.sleep_time_max_y = 2.5  # seconds
 
-        self.current_sleep_x = 0.0
-        self.current_sleep_y = 0.0
+        # self.current_sleep_x = 0.0
+        # self.current_sleep_y = 0.0
+        self.test_index = 0
+        self.list_move = [random.randint(-35, 35) for _ in range(10)]
+        self.test_timer = None
+
 
         self.max_lap = 50
         self.current_lap = 0
@@ -114,37 +119,44 @@ class System:
             self.testScanMode()
 
     def testScanMode(self):
+        
 
-        if self.current_sleep_x < self.sleep_time_max_x:
-            self.current_sleep_x += 0.07
+        if not hasattr(self, "test_timer") or self.test_timer is None:
+            self.test_timer = Timer(duration_s=0.1, tick_s=0.020)
+            self.test_timer.start()
 
-            new_angle_x = clamp_range(
-                -30.0 ,
-                random.uniform(-30.0, 30.0),
-                30.0
-            )
+        self.test_timer.tick()
 
-            self.motors["x"].set_angle(new_angle_x)
+        if self.test_timer.done():
+            self.test_timer.reset()
+            self.test_timer.start()
 
-        elif self.current_sleep_y < self.sleep_time_max_y:
-            self.current_sleep_y += 0.07
+            if self.current_lap >= self.max_lap:
+                self.is_scanning = False
+                self.send_grid()
+                self.test_timer = None
+                self.event_Queue.put(Log("Test Scan Complete."))
+                return
+            
+    
+            # Move X Motor
+            new_x = self.list_move[self.test_index % len(self.list_move)]
+            self.motors["x"].set_angle(new_x)
 
-            new_angle_y = clamp_range(
-                -20.0 ,
-                random.uniform(-20.0, 20.0),
-                20.0
-            )
+            # Move Y Motor
+            new_y = self.list_move[self.test_index % len(self.list_move)]
+            self.motors["y"].set_angle(new_y)
 
-            self.motors["y"].set_angle(new_angle_y)
+            self.test_index += 1
+            if self.test_index % len(self.list_move) == 0:
+                self.current_lap += 1
+
+
+
         self.publish_motor("x")
         self.publish_motor("y")
-        self.current_lap += 1
-        if self.current_lap >= self.max_lap:
-            self.current_lap = 0
-            self.current_sleep_x = 0.0
-            self.current_sleep_y = 0.0
-            return
-
+    
+       
 
     def scan_mode(self):
 
