@@ -14,7 +14,7 @@ def filter3(a: float, b: float, c: float, tol: float = 5) -> float:
 @dataclass
 class VL53L1XConfig:
     i2c_address: int = 0x29
-    tol_mm: float = 5.0
+    tol_mm: float = 3.0
 
 class VL53L1XSensor:
     def __init__(self, cfg: VL53L1XConfig):
