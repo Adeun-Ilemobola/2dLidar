@@ -15,7 +15,7 @@ from shared.protocol import (
     Command, Event, Log,
     EnableMotor, ScanAreaGrid, SetMotorAngle, SetMotorOffset,
     StartScan, StopScan,
-    MotorState, ScanProgress , PointState
+    MotorState, ScanProgress , PointState, getRange , callRange
 )
 
 
@@ -31,8 +31,8 @@ class System:
        
 
         self.motors: Dict[str, Motor] = {
-            "x": Motor(ServoConfig(channel=0),),
-            "y": Motor(ServoConfig(channel=3), ),
+            # "x": Motor(ServoConfig(channel=0),),
+            # "y": Motor(ServoConfig(channel=3), ),
         }
         self.lidar =VL53L1XSensor(VL53L1XConfig())
 
@@ -66,8 +66,11 @@ class System:
         self.current_lap = 0
 
 
+        self.getRamge = False
 
-        self.configure_all()
+
+
+        # self.configure_all()
 
     def configure_all(self) -> None:
         """Home the system on startup."""
@@ -109,14 +112,30 @@ class System:
         elif isinstance(cmd, StopScan):
             self.is_scanning = False
             self.event_Queue.put(Log("Scan stopped."))
+        
+        elif isinstance(cmd, callRange):
+            self.getRamge = True
+            self.event_Queue.put(Log("Range requested."))
 
         else:
             self.event_Queue.put(Log(f"Unknown command: {cmd!r}"))
 
     def tick(self) -> None:
         """Called repeatedly by the worker thread."""
+        self.lidar.tick()
         if  self.is_scanning:
             self.testScanMode()
+
+        if self.getRamge:
+           
+            if not self.lidar.collecting and self.lidar.readyMm is None:
+                self.lidar.request()
+            if not self.lidar.collecting and self.lidar.readyMm is not None:
+                self.event_Queue.put(getRange(distance=self.lidar.readyMm))
+                self.getRamge = False
+                self.event_Queue.put(Log("Range sent."))
+                self.lidar.reset()
+
 
     def testScanMode(self):
         

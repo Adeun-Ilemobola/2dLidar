@@ -29,7 +29,19 @@ class StartScan:
 class StopScan:
     pass
 
-Command = Union[EnableMotor, SetMotorAngle, SetMotorOffset, StartScan, StopScan]
+@dataclass(frozen=True, slots=True)
+class  stopCommands:
+    id :List[int]
+
+@dataclass(frozen=True, slots=True)
+class resumeCommands:
+    id :List[int]
+
+@dataclass(frozen=True, slots=True)
+class callRange:
+    pass
+
+Command = Union[EnableMotor, SetMotorAngle, SetMotorOffset, StartScan, StopScan , stopCommands , resumeCommands , callRange]
 
 # ---------- Events (embedded -> UI) ----------
 @dataclass(frozen=True, slots=True)
@@ -68,8 +80,11 @@ class PointState:
 class ScanAreaGrid:
     points: List[List[PointState]]
 
+@dataclass(frozen=True, slots=True)
+class getRange:
+    distance : float
 
-Event = Union[MotorState, Log, ScanProgress , PointState]
+Event = Union[MotorState, Log, ScanProgress , PointState , ScanAreaGrid , getRange]
 
 
 # ---------- universal types ----------

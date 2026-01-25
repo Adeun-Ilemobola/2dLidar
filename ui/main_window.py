@@ -3,9 +3,10 @@ import queue
 import customtkinter as ctk
 
 from embedded.worker import HardwareWorker
-from shared.protocol import MotorState, Log, ScanProgress , Command , StopScan , StartScan , PointState
+from shared.protocol import MotorState, Log, ScanProgress , Command , StopScan , StartScan , PointState, getRange
 
 from ui.components.motor_panel import MotorPanel
+from ui.components.ramge_pane import RangePane
 
 
 class MainWindow(ctk.CTk):
@@ -44,6 +45,9 @@ class MainWindow(ctk.CTk):
 
         self.scan_toggle = ctk.CTkButton(self.configure_panel, text="Start scan", command=self.run_scam)
         self.reset_toggle = ctk.CTkButton(self.configure_panel, text="Rest", command=self.reset)
+
+        self.s_range = RangePane(self.root_frame, send_cmd=self.send_cmd , width=400 , height=150)
+        self.s_range.grid(row=0, column=2, sticky="ew", pady=8)
 
         self.scan_toggle.grid(row=0, column=0, padx=8, pady=8)
         self.reset_toggle.grid(row=1, column=0, padx=8, pady=8)
@@ -100,6 +104,10 @@ class MainWindow(ctk.CTk):
             elif isinstance(ev, ScanProgress):
                 print(f"Scan progress: {ev.current}/{ev.total}")
                 pass
+            elif isinstance(ev, getRange):
+                self.s_range.update_range(ev.distance)
+           
+                
 
         # Schedule next poll
         self.after(16, self.poll_events)
