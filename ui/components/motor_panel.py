@@ -7,6 +7,7 @@ class MotorPanel(ctk.CTkFrame):
         super().__init__(parent, width=width, height=height)
         self.axis = axis
         self.send_cmd = send_cmd  # function: (Command) -> None
+        self.Disable = False
 
         self.angle = 0.0
         self.offset_deg = 0.0
@@ -56,6 +57,8 @@ class MotorPanel(ctk.CTkFrame):
 
     # ---------- UI -> commands ----------
     def on_send_button(self):
+        if self.Disable:
+            return
         value = self.read_float(self.entry.get(), default=0.0)
 
         if self.offset_mode_var.get():
@@ -70,6 +73,8 @@ class MotorPanel(ctk.CTkFrame):
         self.update_angle_label()
 
     def on_slider_move(self, value: float):
+        if self.Disable:
+            return
         if self.offset_mode_var.get():
             self.offset_deg = float(Decimal(value).quantize(Decimal('0.1')))
             self.slider.set(self.offset_deg)
@@ -114,6 +119,8 @@ class MotorPanel(ctk.CTkFrame):
 
 
     def on_offset_checkbox(self):
+        if self.Disable:
+            return
         if self.offset_mode_var.get():
             # it's true do something
             self.slider.configure(from_=0, to=180)
@@ -127,6 +134,11 @@ class MotorPanel(ctk.CTkFrame):
             self.entry.delete(0, ctk.END)
             self.entry.insert(0, str(self.angle))
         self.update_angle_label()
+    
+
+    def setDisable(self , disable:bool):
+        self.Disable = disable
+       
 
 
 

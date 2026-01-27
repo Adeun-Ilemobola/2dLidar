@@ -6,6 +6,7 @@ class RangePane(ctk.CTkFrame):
     def __init__(self, parent, send_cmd, *, width=360, height=120):
         super().__init__(parent, width=width, height=height)
         self.send_cmd = send_cmd  
+        self.Disable = False
 
         self.range_value = ctk.StringVar(value="N/A")
 
@@ -26,8 +27,13 @@ class RangePane(ctk.CTkFrame):
 
     # ---------- UI -> commands ----------
     def on_refresh_button(self):
+        if self.Disable:
+            return
         self.send_cmd(callRange())
         print("Range request sent.")
     # ---------- Events (embedded -> UI) ----------
     def update_range(self, distance: float):
         self.range_value.set(f"{distance:.2f} cm")
+    def setDisable(self , disable:bool):
+        self.Disable = disable
+       

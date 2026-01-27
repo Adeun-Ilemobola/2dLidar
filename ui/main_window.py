@@ -1,4 +1,6 @@
 """Main application window. Ui/main_window.py """
+# import queue
+import random
 import queue
 import customtkinter as ctk
 
@@ -7,10 +9,13 @@ from shared.protocol import MotorState, Log, ScanProgress , Command , StopScan ,
 
 from ui.components.motor_panel import MotorPanel
 from ui.components.ramge_pane import RangePane
+from ui.components.SmartCanvas import SmartCanvas
+
+
 
 
 class MainWindow(ctk.CTk):
-    def __init__(self, title="Pi Control Panel", size=(1000, 700)):
+    def __init__(self, title="Pi Control Panel", size=(1000, 900)):
         super().__init__()
         self.title(title)
         self.geometry(f"{size[0]}x{size[1]}")
@@ -52,6 +57,15 @@ class MainWindow(ctk.CTk):
         self.scan_toggle.grid(row=0, column=0, padx=8, pady=8)
         self.reset_toggle.grid(row=1, column=0, padx=8, pady=8)
 
+        # Smart Canvas
+        # Dummy point states for testing
+        dummy_point_states = [
+           [PointState(x=j, y=i, distant=random.uniform(0, 400)) for j in range(40)]
+           for i in range(40)
+        ]
+        self.smart_canvas = SmartCanvas(self.root_frame, width=400, height=400, point_states=dummy_point_states , bg="White")
+        self.smart_canvas.grid(row=1, column=0, columnspan=3, sticky="nsew", padx=8, pady=8)
+
         # Start polling events
         self.after(16,self.poll_events)
 
@@ -70,6 +84,11 @@ class MainWindow(ctk.CTk):
     def reset(self) -> None:
         self.scan_progress = False
         self.send_cmd(StopScan())
+    def enable_widget(on:bool):
+        if on:
+            pass
+        else:
+            pass
 
     def send_cmd(self, cmd:Command):
         self.cmd_q.put(cmd)

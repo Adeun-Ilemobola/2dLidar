@@ -31,11 +31,11 @@ class StopScan:
 
 @dataclass(frozen=True, slots=True)
 class  stopCommands:
-    id :List[int]
+   pass
 
 @dataclass(frozen=True, slots=True)
 class resumeCommands:
-    id :List[int]
+   pass
 
 @dataclass(frozen=True, slots=True)
 class callRange:
