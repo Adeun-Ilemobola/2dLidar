@@ -1,7 +1,8 @@
 # embedded/system.py
 from __future__ import annotations
-
+import time
 import random
+from typing import Optional
 
 from typing import Dict, List
 from queue import Queue
@@ -19,6 +20,7 @@ from shared.protocol import (
 )
 
 
+
 def clamp(_max, val) -> float:
     return max(0.0, min(_max, val))
 def clamp_range(min_val, val, max_val) -> float:
@@ -31,13 +33,13 @@ class System:
        
 
         self.motors: Dict[str, Motor] = {
-            # "x": Motor(ServoConfig(channel=0),),
-            # "y": Motor(ServoConfig(channel=3), ),
+            "x": Motor(ServoConfig(channel=0),),
+            "y": Motor(ServoConfig(channel=2), ),
         }
         self.lidar =VL53L1XSensor(VL53L1XConfig())
 
         self.is_scanning = False
-        self.step_size = 2
+        self.step_size = 2 # degrees 2
         self.scan_range_x = (-35.0, 35.0) 
         self.scan_range_y = (-35.0, 35.0)
 
@@ -69,8 +71,12 @@ class System:
         self.getRamge = False
 
 
+        self.scan_start_time = None
+        self.timer_av = False
 
-        # self.configure_all()
+
+
+        self.configure_all()
 
     def configure_all(self) -> None:
         """Home the system on startup."""
@@ -78,8 +84,8 @@ class System:
         self.motors["y"].enable(True)
         
         # # Center the motors
-        # self.motors["x"].set_angle(0)
-        # self.motors["y"].set_angle(0)
+        self.motors["x"].set_angle(0)
+        self.motors["y"].set_angle(0)
         self.publish_motor("x")
         self.publish_motor("y")
        
@@ -124,7 +130,11 @@ class System:
         """Called repeatedly by the worker thread."""
         self.lidar.tick()
         if  self.is_scanning:
-            self.testScanMode()
+            if self.timer_av == False:
+                self.timer_av = True
+                self.scan_start_time = time.perf_counter()
+
+            self.scan_mode()
 
         if self.getRamge:
            
@@ -223,10 +233,11 @@ class System:
             
 
             # Check Y Boundaries
-            if self.scan_y > self.scan_range_y[1]:
+            if self.scan_y == self.scan_range_y[1]:
+               elapsed = time.perf_counter() - self.scan_start_time
                self.is_scanning = False
                self.send_grid()
-               self.event_Queue.put(Log("Scan Complete."))
+               self.event_Queue.put(Log(f"Scan Complete. Elapsed time: {elapsed:.2f}s"))
                return
         
             self.motors["x"].set_angle(self.scan_x)
