@@ -16,7 +16,7 @@ from shared.protocol import (
     Command, Event, Log,
     EnableMotor, ScanAreaGrid, SetMotorAngle, SetMotorOffset,
     StartScan, StopScan,
-    MotorState, ScanProgress , PointState, getRange , callRange
+    MotorState, ScanProgress , PointState, getRange , callRange , setStepSize
 )
 
 
@@ -122,7 +122,12 @@ class System:
         elif isinstance(cmd, callRange):
             self.getRamge = True
             self.event_Queue.put(Log("Range requested."))
-
+        elif isinstance(cmd, setStepSize):
+            if cmd.step_size <=0 or cmd.step_size > (self.scan_range_x[1] - self.scan_range_x[0]) or cmd.step_size > 5:
+                self.event_Queue.put(Log(f"Invalid step size: {cmd.step_size}. Must be positive and within scan range."))
+                return
+            self.step_size = cmd.step_size
+            self.event_Queue.put(Log(f"Step size set to {self.step_size} degrees."))
         else:
             self.event_Queue.put(Log(f"Unknown command: {cmd!r}"))
 
@@ -132,9 +137,11 @@ class System:
         if  self.is_scanning:
             if self.timer_av == False:
                 self.timer_av = True
+                self.event_Queue.put(ScanProgress(current=0, total=366 , start =True))
                 self.scan_start_time = time.perf_counter()
 
             self.scan_mode()
+            return
 
         if self.getRamge:
            
@@ -230,7 +237,13 @@ class System:
             else:
             # Normal move
                 self.scan_x = next_x
-            
+            # Publish progress
+            self.event_Queue.put(ScanProgress(
+                current=time.perf_counter() - self.scan_start_time,
+                total= 366,
+                start = True
+            ))
+           
 
             # Check Y Boundaries
             if self.scan_y == self.scan_range_y[1]:

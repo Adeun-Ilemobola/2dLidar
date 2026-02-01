@@ -41,7 +41,11 @@ class resumeCommands:
 class callRange:
     pass
 
-Command = Union[EnableMotor, SetMotorAngle, SetMotorOffset, StartScan, StopScan , stopCommands , resumeCommands , callRange]
+@dataclass(frozen=True, slots=True)
+class setStepSize:
+    step_size : float
+
+Command = Union[EnableMotor, SetMotorAngle, SetMotorOffset, StartScan, StopScan , stopCommands , resumeCommands , callRange, setStepSize]
 
 # ---------- Events (embedded -> UI) ----------
 @dataclass(frozen=True, slots=True)
@@ -59,6 +63,7 @@ class Log:
 class ScanProgress:
     current: int
     total: int
+    start :bool
 
 @dataclass(frozen=True, slots=True)
 class PointState:
