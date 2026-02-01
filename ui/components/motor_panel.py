@@ -1,5 +1,6 @@
+from typing_extensions import Literal
 import customtkinter as ctk
-from shared.protocol import Axis, SetMotorAngle, SetMotorOffset, EnableMotor  # use your real command names
+from shared.protocol import Axis, SetMotorAngle, SetMotorOffset, EnableMotor  
 from decimal import Decimal, getcontext
 
 class MotorPanel(ctk.CTkFrame):
@@ -136,9 +137,20 @@ class MotorPanel(ctk.CTkFrame):
         self.update_angle_label()
     
 
-    def setDisable(self , disable:bool):
-        self.Disable = disable
-       
+    def setDisable(self , state:Literal['disabled', 'normal']):
+        if state == 'disabled':
+            self.Disable = True
+            self.slider.configure(state="disabled")
+            self.entry.configure(state="disabled")
+            self.send_button.configure(state="disabled")
+            self.offset_checkbox.configure(state="disabled")
+        else:
+            self.Disable = False
+            self.slider.configure(state="normal")
+            self.entry.configure(state="normal")
+            self.send_button.configure(state="normal")
+            self.offset_checkbox.configure(state="normal")       
+        
 
 
 

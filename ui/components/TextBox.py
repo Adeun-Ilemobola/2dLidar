@@ -1,10 +1,12 @@
 import customtkinter as ctk
 from typing import Callable, Optional
+from typing_extensions import Literal
+
 
 
 
 class TextBox(ctk.CTkFrame):
-    def __init__(self,set_callback: Optional[Callable[[str], None]] =None, parent=None, *,  width=400, height=200 , placeholder="" , label="" ):
+    def __init__(self, parent, *, set_callback: Optional[Callable[[str], None]] =None, width=400, height=200 , placeholder="" , label="" ):
         super().__init__(parent , width=width, height=height)
 
         self.text = ctk.StringVar(value="")
@@ -29,3 +31,8 @@ class TextBox(ctk.CTkFrame):
         self.text.set("")
     def get_text(self) -> str:
         return self.text.get()
+    def setDisable(self , state:Literal['disabled', 'normal']):
+        if state == "disabled":
+            self.entry.configure(state="disabled")
+        else:
+            self.entry.configure(state="normal")

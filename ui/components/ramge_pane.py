@@ -1,5 +1,7 @@
 
 import customtkinter as ctk
+from typing_extensions import Literal
+
 from shared.protocol import Axis, callRange, getRange   # use
 
 class RangePane(ctk.CTkFrame):
@@ -34,6 +36,10 @@ class RangePane(ctk.CTkFrame):
     # ---------- Events (embedded -> UI) ----------
     def update_range(self, distance: float):
         self.range_value.set(f"{distance:.2f} cm")
-    def setDisable(self , disable:bool):
-        self.Disable = disable
+    def setDisable(self , state:Literal['disabled', 'normal']):
+        self.Disable = state == "disabled"
+        if self.Disable:
+            self.refresh_button.configure(state="disabled")
+        else:
+            self.refresh_button.configure(state="normal")
        

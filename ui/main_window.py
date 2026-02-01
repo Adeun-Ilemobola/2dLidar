@@ -32,47 +32,90 @@ class MainWindow(ctk.CTk):
         #State verbals
         self.scan_progress = False
         self.step = 2
-
         # Layout containers
         self.root_frame = ctk.CTkFrame(self)
         self.root_frame.pack(fill="both", expand=True, padx=12, pady=12)
 
+        # Root grid sizing: 3 top columns + canvas row
+        self.root_frame.grid_rowconfigure(0, weight=0)
+        self.root_frame.grid_rowconfigure(1, weight=1)
+
+        self.root_frame.grid_columnconfigure(0, weight=3)  # left panel bigger
+        self.root_frame.grid_columnconfigure(1, weight=1)  # middle
+        self.root_frame.grid_columnconfigure(2, weight=1)  # right
+
+        # ----------------------------
+        # LEFT PANEL: motors + config
+        # ----------------------------
         self.top_row = ctk.CTkFrame(self.root_frame)
-        self.top_row.grid(row=0, column=0, sticky="nsew")
+        self.top_row.grid(row=0, column=0, sticky="nsew", padx=8, pady=8)
+        self.top_row.grid_columnconfigure(0, weight=1)
+        self.top_row.grid_columnconfigure(1, weight=1)
 
-        # Motor panels (pass send_cmd function)
+        # scan config ON TOP (row 0)
+        self.scan_config = ctk.CTkFrame(self.top_row)
+        self.scan_config.grid(row=0, column=0, columnspan=2, sticky="ew", padx=8, pady=(8, 4))
+
+        self.step_entry = TextBox(
+            parent=self.scan_config,
+            width=150,
+            height=40,
+            label="Step Size (deg):",
+            placeholder="2",
+            set_callback=self.update_step_size
+        )
+        self.step_entry.grid(row=0, column=0, sticky="ew", padx=8, pady=8)
+
+        # motors BELOW (row 1)
         self.motorX = MotorPanel(self.top_row, axis="x", send_cmd=self.send_cmd)
+        self.motorX.grid(row=1, column=0, sticky="nsew", padx=8, pady=(4, 8))
+
         self.motorY = MotorPanel(self.top_row, axis="y", send_cmd=self.send_cmd)
+        self.motorY.grid(row=1, column=1, sticky="nsew", padx=8, pady=(4, 8))
 
-        self.scan_cognfig = ctk.CTkFrame(self.top_row)
+   
 
-        self.step_entry = TextBox(self.scan_cognfig, width=150, height=40, label="Step Size (deg):", placeholder="2", set=self.update_step_size)
+        # ----------------------------
+        # MIDDLE PANEL:  the scan controls
+        # ----------------------------
+        self.middle_panel = ctk.CTkFrame(self.root_frame)
+        self.middle_panel.grid(row=0, column=1, sticky="nsew", padx=8, pady=8)
+        self.middle_panel.grid_columnconfigure(0, weight=1)
 
-        self.motorX.grid(row=1, column=0, sticky="nsew", padx=8, pady=8)
-        self.motorY.grid(row=1, column=1, sticky="nsew", padx=8, pady=8)
-        self.step_entry.grid(row=0, column=0, sticky="nsew", padx=8, pady=8)
+        self.scan_toggle = ctk.CTkButton(self.middle_panel, text="Start scan", command=self.run_scam)
+        self.reset_toggle = ctk.CTkButton(self.middle_panel, text="Rest", command=self.reset)
 
-        self.scan_cognfig.grid(row=1, column=2, sticky="nsew", padx=8, pady=8)
-      
-        self.configure_panel = ctk.CTkFrame(self.root_frame)
-        self.configure_panel.grid(row=0, column=2, sticky="nsew" , padx=8)
+        self.scan_toggle.grid(row=0, column=0, sticky="ew", padx=8, pady=(8, 4))
+        self.reset_toggle.grid(row=1, column=0, sticky="ew", padx=8, pady=(4, 8))
 
-        self.scan_toggle = ctk.CTkButton(self.configure_panel, text="Start scan", command=self.run_scam)
-        self.reset_toggle = ctk.CTkButton(self.configure_panel, text="Rest", command=self.reset)
 
-        self.s_range = RangePane(self.root_frame, send_cmd=self.send_cmd , width=400 , height=150)
-        self.s_range.grid(row=0, column=3, sticky="ew", pady=8)
-        self.scan_toggle.grid(row=0, column=0, padx=8, pady=8)
-        self.reset_toggle.grid(row=1, column=0, padx=8, pady=8)
+        # ----------------------------
+        # RIGHT PANEL: the range finder
+        # ----------------------------
+        self.right_panel = ctk.CTkFrame(self.root_frame)
+        self.right_panel.grid(row=0, column=2, sticky="nsew", padx=8, pady=8)
+        self.right_panel.grid_columnconfigure(0, weight=1)
 
-        # Smart Canvas
-        # Dummy point states for testing
+        self.s_range = RangePane(self.right_panel, send_cmd=self.send_cmd, width=400, height=150)
+        self.s_range.grid(row=0, column=0, sticky="ew", padx=8, pady=8)
+
+
+        # ----------------------------
+        # Smart Canvas :  the scan area display
+        # ----------------------------
         dummy_point_states = [
-           [PointState(x=j, y=i, distant=random.uniform(0, 400)) for j in range(40)]
-           for i in range(40)
+            [PointState(x=j, y=i, distant=random.uniform(0, 400)) for j in range(40)]
+            for i in range(40)
         ]
-        self.smart_canvas = SmartCanvas(self.root_frame, width=400, height=400, point_states=dummy_point_states , bg="White")
+        self.smart_canvas = SmartCanvas(
+            self.root_frame,
+            width=400,
+            height=400,
+            point_states=dummy_point_states,
+            bg="White"
+        )
         self.smart_canvas.grid(row=1, column=0, columnspan=3, sticky="nsew", padx=8, pady=8)
+
 
         # Start polling events
         self.after(16,self.poll_events)
@@ -92,11 +135,13 @@ class MainWindow(ctk.CTk):
     def reset(self) -> None:
         self.scan_progress = False
         self.send_cmd(StopScan())
-    def enable_widget(on:bool):
-        if on:
-            pass
-        else:
-            pass
+    def enable_widget(self, on:bool):
+        state = "normal" if on else "disabled"
+        self.motorX.setDisable(state)
+        self.motorY.setDisable(state)
+        self.s_range.setDisable(state)
+        self.step_entry.setDisable(state)
+
     
     def update_step_size(self , step_size: str):
         if not step_size:
