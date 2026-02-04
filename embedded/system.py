@@ -6,6 +6,7 @@ from typing import Optional
 
 from typing import Dict, List
 from queue import Queue
+from shared.config import scanRange
 from shared.time import Timer
 
 
@@ -39,9 +40,10 @@ class System:
         self.lidar =VL53L1XSensor(VL53L1XConfig())
 
         self.is_scanning = False
+        self.is_continuous_mode = False
         self.step_size = 2 # degrees 2
-        self.scan_range_x = (-35.0, 35.0) 
-        self.scan_range_y = (-35.0, 35.0)
+        self.scan_range_x = scanRange.range_X_max
+        self.scan_range_y = scanRange.range_Y_Max
 
 
         self.scan_x = 0.0
@@ -84,8 +86,8 @@ class System:
         self.motors["y"].enable(True)
         
         # # Center the motors
-        self.motors["x"].set_angle(0)
-        self.motors["y"].set_angle(0)
+        self.motors["x"].set_angle(self.scan_range_x[0])
+        self.motors["y"].set_angle(self.scan_range_y[1])
         self.publish_motor("x")
         self.publish_motor("y")
        
@@ -197,7 +199,6 @@ class System:
     def scan_mode(self):
 
         if self.is_scanning and not self.motors["x"].testMode and not self.motors["y"].testMode:
-            self.event_Queue.put(Log("Scan started."))
             self.lidar.tick()
 
             if (not self.lidar.collecting) and (self.lidar.readyMm is None):
@@ -272,8 +273,10 @@ class System:
         self.scan_x = self.scan_range_x[0]
         self.scan_y = self.scan_range_y[0]
         self.scan_direction = 1
-        self.motors["x"].set_angle(self.scan_x)
-        self.motors["y"].set_angle(self.scan_y)
+        self.motors["x"].set_angle(self.scan_range_x[0])
+        self.motors["y"].set_angle(self.scan_range_y[1])
+        self.publish_motor("x")
+        self.publish_motor("y")
     
     # ---------- helpers ----------
     

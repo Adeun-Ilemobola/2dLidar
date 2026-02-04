@@ -4,7 +4,7 @@ from shared.protocol import Axis, SetMotorAngle, SetMotorOffset, EnableMotor
 from decimal import Decimal, getcontext
 
 class MotorPanel(ctk.CTkFrame):
-    def __init__(self, parent, axis: Axis, send_cmd, *, width=360, height=160):
+    def __init__(self, parent, axis: Axis, send_cmd, *, width=360, height=160  , range_min_max: tuple[float, float] ):
         super().__init__(parent, width=width, height=height)
         self.axis = axis
         self.send_cmd = send_cmd  # function: (Command) -> None
@@ -12,7 +12,7 @@ class MotorPanel(ctk.CTkFrame):
 
         self.angle = 0.0
         self.offset_deg = 0.0
-        self.max_min = (40 , -40)
+        self.max_min = range_min_max
 
         # --- UI state vars ---
         self.offset_mode_var = ctk.BooleanVar(value=False)
@@ -144,12 +144,22 @@ class MotorPanel(ctk.CTkFrame):
             self.entry.configure(state="disabled")
             self.send_button.configure(state="disabled")
             self.offset_checkbox.configure(state="disabled")
+            #  change the visual look to disabled
+            self.slider.configure(fg_color="#D21010")
+            self.entry.configure(text_color="#D21010")
+            self.send_button.configure(text_color="#D21010")
+            self.offset_checkbox.configure(text_color="#D21010")
         else:
             self.Disable = False
             self.slider.configure(state="normal")
             self.entry.configure(state="normal")
             self.send_button.configure(state="normal")
-            self.offset_checkbox.configure(state="normal")       
+            self.offset_checkbox.configure(state="normal")
+            # change the visual look to normal
+            self.slider.configure(fg_color="#1f6aa5")
+            self.entry.configure(text_color="#000000")
+            self.send_button.configure(text_color="#000000")
+            self.offset_checkbox.configure(text_color="#000000")       
         
 
 

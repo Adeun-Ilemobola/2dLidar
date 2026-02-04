@@ -5,6 +5,7 @@ import queue
 import customtkinter as ctk
 
 from embedded.worker import HardwareWorker
+from shared.config import SystemConfig, scanRange, scanRange
 from shared.protocol import MotorState, Log, ScanProgress , Command , StopScan , StartScan , PointState, getRange , ScanAreaGrid
 
 from ui.components.motor_panel import MotorPanel
@@ -67,10 +68,10 @@ class MainWindow(ctk.CTk):
         self.step_entry.grid(row=0, column=0, sticky="ew", padx=8, pady=8)
 
         # motors BELOW (row 1)
-        self.motorX = MotorPanel(self.top_row, axis="x", send_cmd=self.send_cmd)
+        self.motorX = MotorPanel(self.top_row, axis="x", send_cmd=self.send_cmd , range_min_max = scanRange.range_X_max)
         self.motorX.grid(row=1, column=0, sticky="nsew", padx=8, pady=(4, 8))
 
-        self.motorY = MotorPanel(self.top_row, axis="y", send_cmd=self.send_cmd)
+        self.motorY = MotorPanel(self.top_row, axis="y", send_cmd=self.send_cmd , range_min_max = scanRange.range_Y_Max)
         self.motorY.grid(row=1, column=1, sticky="nsew", padx=8, pady=(4, 8))
 
    
@@ -118,7 +119,7 @@ class MainWindow(ctk.CTk):
 
 
         # Start polling events
-        self.after(16,self.poll_events)
+        self.after(SystemConfig.tick_ms, self.poll_events)
 
         # Proper close handler
         self.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -177,24 +178,29 @@ class MainWindow(ctk.CTk):
                         enabled=ev.enabled,
                     )
 
-            elif isinstance(ev, Log):
+            if isinstance(ev, Log):
                 print(ev.message)
 
-            elif isinstance(ev, PointState):
+            if isinstance(ev, PointState):
                 print(f"PointState: x={ev.x}, y={ev.y}, distant={ev.distant}")
                 pass
-            elif isinstance(ev, ScanProgress):
+            if isinstance(ev, ScanProgress):
                 print(f"Scan progress: {ev.current}/{ev.total}")
+                if ev.start:
+                    self.enable_widget(False)
+                else :
+                    self.enable_widget(True)
                 pass
-            elif isinstance(ev, getRange):
+            if isinstance(ev, getRange):
                 self.s_range.update_range(ev.distance)
-            elif isinstance(ev, ScanAreaGrid):
-                self.smart_canvas.update_point_states(ev.point_states)
+                print(f"Range distance: {ev.distance} mm")
+            if isinstance(ev, ScanAreaGrid):
+                self.smart_canvas.update_point_states(ev.points)
            
                 
 
         # Schedule next poll
-        self.after(16, self.poll_events)
+        self.after(SystemConfig.tick_ms, self.poll_events)
 
     def on_close(self):
         try:

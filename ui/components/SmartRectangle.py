@@ -31,8 +31,6 @@ class SmartRectangle:
         else:
             self.auto_color()
 
-
-        
     def auto_color(self):
         distance = self.state.distant
         if distance >= 0 and distance < 80:

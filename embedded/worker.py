@@ -4,6 +4,7 @@ import queue
 import threading
 from typing import Optional
 
+from shared.config import SystemConfig
 from shared.protocol import Command, Event, Log
 from embedded.system import System
 
@@ -26,7 +27,7 @@ class HardwareWorker(threading.Thread):
             while not self.stop_event.is_set():
                 # 1)  (non-blocking)
                 try:
-                    cmd = self.cmd_q.get(timeout=0.02)  # 20ms tick
+                    cmd = self.cmd_q.get(timeout=SystemConfig.tick_ms  )  # 20ms tick
                     self.system.handle(cmd)
                 except queue.Empty:
                     pass

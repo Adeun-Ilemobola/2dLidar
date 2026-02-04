@@ -2,7 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-def filter3(a: float, b: float, c: float, tol: float = 5) -> float:
+def filter3(a: float, b: float, c: float, tol: float = 2) -> float:
     if abs(a - b) <= tol:
         return (a + b) / 2
     if abs(a - c) <= tol:
@@ -58,17 +58,13 @@ class VL53L1XSensor:
         if not self.collecting:
             return
 
-        # Only read when a fresh measurement is ready (prevents duplicates)
-        if hasattr(self.sensor, "data_ready") and not self.sensor.data_ready:
-            return
-
         try:
             mm = float(self.sensor.distance)
         except Exception as e:
             print(f"VL53L1X read error: {e!r}")
             return
 
-        if mm <= 0:
+        if mm <= 0 :
             return
 
         self.samples.append(mm)
@@ -79,6 +75,13 @@ class VL53L1XSensor:
                 self.sensor.clear_interrupt()
             except Exception:
                 pass
+
+        if len(self.samples) == 2:
+            a, b = self.samples
+            if abs(a - b) <= self.cfg.tol_mm:
+                self.collecting = False
+                self.readyMm = (a + b) / 2.0
+                return
 
         if len(self.samples) >= 3:
             self.collecting = False

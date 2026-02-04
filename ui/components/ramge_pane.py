@@ -9,6 +9,8 @@ class RangePane(ctk.CTkFrame):
         super().__init__(parent, width=width, height=height)
         self.send_cmd = send_cmd  
         self.Disable = False
+        self. Continuous_ranging = False
+
 
         self.range_value = ctk.StringVar(value="N/A")
 
@@ -18,28 +20,50 @@ class RangePane(ctk.CTkFrame):
 
         self.refresh_button = ctk.CTkButton(self, text="Get Range", command=self.on_refresh_button)
 
+        self.ranging_button = ctk.CTkButton(self, text="Continuous Ranging", command=self.on_range_event)
+
         # --- Layout ---
         self.grid_columnconfigure(0, weight=1)
 
         self.title.grid(row=0, column=0, sticky="w", padx=10, pady=(10, 0))
         self.range_label.grid(row=1, column=0, sticky="w", padx=10, pady=(4, 0))
         self.refresh_button.grid(row=2, column=0, sticky="ew", padx=10, pady=8)
+        self.ranging_button.grid(row=3, column=0, sticky="ew", padx=10, pady=(0, 10))
 
         self.pack_propagate(False)  # respect fixed size
 
     # ---------- UI -> commands ----------
     def on_refresh_button(self):
-        if self.Disable:
+        if self.Disable or self.Continuous_ranging:
             return
         self.send_cmd(callRange())
         print("Range request sent.")
     # ---------- Events (embedded -> UI) ----------
+    def on_range_event(self):
+        if self.Continuous_ranging:
+            self.Continuous_ranging = False
+            self.refresh_button.configure(text="Get Range")
+            self.refresh_button.configure(state="normal")
+            self.refresh_button.configure(fg_color="#1f6aa5")
+        else:
+            self.Continuous_ranging = True
+            self.refresh_button.configure(text="Stop Continuous")
+            # disable the refresh button while in continuous mode
+            self.refresh_button.configure(state="disabled")
+            self.refresh_button.configure(fg_color="#D21010")
+            # In continuous mode, we would set up a repeating call to get range
+            # This is a placeholder for that functionality
+
     def update_range(self, distance: float):
         self.range_value.set(f"{distance:.2f} cm")
     def setDisable(self , state:Literal['disabled', 'normal']):
         self.Disable = state == "disabled"
         if self.Disable:
             self.refresh_button.configure(state="disabled")
+            # change the visual look to disabled
+            self.refresh_button.configure(fg_color="#D21010")
         else:
             self.refresh_button.configure(state="normal")
+            # change the visual look to normal
+            self.refresh_button.configure(fg_color="#1f6aa5")
        
