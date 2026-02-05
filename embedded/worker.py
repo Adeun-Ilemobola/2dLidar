@@ -14,6 +14,7 @@ class HardwareWorker(threading.Thread):
         self.cmd_q = cmd_q
         self.event_q = event_q
         self.stop_event = threading.Event()
+        self.SystemConfig = SystemConfig()
 
         self.system: Optional[System] = None
 
@@ -27,7 +28,7 @@ class HardwareWorker(threading.Thread):
             while not self.stop_event.is_set():
                 # 1)  (non-blocking)
                 try:
-                    cmd = self.cmd_q.get(timeout=SystemConfig.tick_ms  )  # 20ms tick
+                    cmd = self.cmd_q.get(timeout=self.SystemConfig.tick_ms / 1000  )  # 20ms tick
                     self.system.handle(cmd)
                 except queue.Empty:
                     pass

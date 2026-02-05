@@ -45,6 +45,10 @@ class callRange:
 class setStepSize:
     step_size : float
 
+@dataclass(frozen=True, slots=True)
+class continuous_mode:
+    continuous_mode : bool
+
 Command = Union[EnableMotor, SetMotorAngle, SetMotorOffset, StartScan, StopScan , stopCommands , resumeCommands , callRange, setStepSize]
 
 # ---------- Events (embedded -> UI) ----------
@@ -61,8 +65,8 @@ class Log:
 
 @dataclass(frozen=True, slots=True)
 class ScanProgress:
-    current: int
-    total: int
+    current: float
+    total: float
     start :bool
 
 @dataclass(frozen=True, slots=True)

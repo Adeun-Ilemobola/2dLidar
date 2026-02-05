@@ -2,7 +2,7 @@
 import customtkinter as ctk
 from typing_extensions import Literal
 
-from shared.protocol import Axis, callRange, getRange   # use
+from shared.protocol import Axis, callRange, continuous_mode, getRange   # use
 
 class RangePane(ctk.CTkFrame):
     def __init__(self, parent, send_cmd, *, width=360, height=120):
@@ -42,17 +42,17 @@ class RangePane(ctk.CTkFrame):
     def on_range_event(self):
         if self.Continuous_ranging:
             self.Continuous_ranging = False
-            self.refresh_button.configure(text="Get Range")
+            self.ranging_button.configure(text="Start Continuous")
             self.refresh_button.configure(state="normal")
             self.refresh_button.configure(fg_color="#1f6aa5")
+            self.send_cmd(continuous_mode(continuous_mode=False))
         else:
             self.Continuous_ranging = True
-            self.refresh_button.configure(text="Stop Continuous")
+            self.ranging_button.configure(text="Stop Continuous")
             # disable the refresh button while in continuous mode
             self.refresh_button.configure(state="disabled")
             self.refresh_button.configure(fg_color="#D21010")
-            # In continuous mode, we would set up a repeating call to get range
-            # This is a placeholder for that functionality
+            self.send_cmd(continuous_mode(continuous_mode=True))
 
     def update_range(self, distance: float):
         self.range_value.set(f"{distance:.2f} cm")
@@ -60,10 +60,14 @@ class RangePane(ctk.CTkFrame):
         self.Disable = state == "disabled"
         if self.Disable:
             self.refresh_button.configure(state="disabled")
+            self.ranging_button.configure(state="disabled")
             # change the visual look to disabled
             self.refresh_button.configure(fg_color="#D21010")
+            self.ranging_button.configure(fg_color="#D21010")
         else:
             self.refresh_button.configure(state="normal")
+            self.ranging_button.configure(state="normal")
             # change the visual look to normal
             self.refresh_button.configure(fg_color="#1f6aa5")
+            self.ranging_button.configure(fg_color="#1f6aa5")
        

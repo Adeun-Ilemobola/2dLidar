@@ -157,9 +157,9 @@ class MotorPanel(ctk.CTkFrame):
             self.offset_checkbox.configure(state="normal")
             # change the visual look to normal
             self.slider.configure(fg_color="#1f6aa5")
-            self.entry.configure(text_color="#000000")
-            self.send_button.configure(text_color="#000000")
-            self.offset_checkbox.configure(text_color="#000000")       
+            self.entry.configure(text_color="#F9F9F9")
+            self.send_button.configure(text_color="#F9F9F9")
+            self.offset_checkbox.configure(text_color="#F9F9F9")       
         
 
 

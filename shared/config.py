@@ -4,8 +4,8 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True, slots=True)
 class scanRange:
-    maxX: float
-    maxY: float
+    maxX:  float =23.0
+    maxY: float = 23.0
     min_distance: float = 2.0
     max_distance: float = 400.0
     avg_scan_time: float = 366.0  # in seconds
@@ -14,4 +14,4 @@ class scanRange:
 
 @dataclass(frozen=True, slots=True)
 class SystemConfig:
-    tick_ms: float = (15)/1000  # 20 milliseconds per tick
+    tick_ms: int = 15  # 20 milliseconds per tick

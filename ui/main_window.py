@@ -29,10 +29,12 @@ class MainWindow(ctk.CTk):
         # Worker thread
         self.worker = HardwareWorker(self.cmd_q, self.event_q)
         self.worker.start()
+        self.SystemConfig = SystemConfig()
 
         #State verbals
         self.scan_progress = False
         self.step = 2
+        self.scanRangeMas = scanRange()
         # Layout containers
         self.root_frame = ctk.CTkFrame(self)
         self.root_frame.pack(fill="both", expand=True, padx=12, pady=12)
@@ -68,10 +70,10 @@ class MainWindow(ctk.CTk):
         self.step_entry.grid(row=0, column=0, sticky="ew", padx=8, pady=8)
 
         # motors BELOW (row 1)
-        self.motorX = MotorPanel(self.top_row, axis="x", send_cmd=self.send_cmd , range_min_max = scanRange.range_X_max)
+        self.motorX = MotorPanel(self.top_row, axis="x", send_cmd=self.send_cmd , range_min_max = self.scanRangeMas.range_X_max)
         self.motorX.grid(row=1, column=0, sticky="nsew", padx=8, pady=(4, 8))
 
-        self.motorY = MotorPanel(self.top_row, axis="y", send_cmd=self.send_cmd , range_min_max = scanRange.range_Y_Max)
+        self.motorY = MotorPanel(self.top_row, axis="y", send_cmd=self.send_cmd , range_min_max = self.scanRangeMas.range_Y_Max)
         self.motorY.grid(row=1, column=1, sticky="nsew", padx=8, pady=(4, 8))
 
    
@@ -119,7 +121,7 @@ class MainWindow(ctk.CTk):
 
 
         # Start polling events
-        self.after(SystemConfig.tick_ms, self.poll_events)
+        self.after(self.SystemConfig.tick_ms, self.poll_events)
 
         # Proper close handler
         self.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -129,10 +131,12 @@ class MainWindow(ctk.CTk):
             self.scan_progress = False
             self.send_cmd(StopScan())
             self.scan_toggle.configure(text="Start Scan")
+            self.enable_widget(True)
         else:
             self.send_cmd(StartScan())
             self.scan_progress = True
             self.scan_toggle.configure(text="Stop Scan")
+            self.enable_widget(False)
     def reset(self) -> None:
         self.scan_progress = False
         self.send_cmd(StopScan())
@@ -185,11 +189,18 @@ class MainWindow(ctk.CTk):
                 print(f"PointState: x={ev.x}, y={ev.y}, distant={ev.distant}")
                 pass
             if isinstance(ev, ScanProgress):
-                print(f"Scan progress: {ev.current}/{ev.total}")
+                print(f"""
+                    Scan Progress: ({ev.current / ev.total * 100:.2f}%)
+                    current time = {ev.current}
+                    total time   = {ev.total}
+                    mode start   = {ev.start}
+                    """)
+               
                 if ev.start:
                     self.enable_widget(False)
                 else :
                     self.enable_widget(True)
+                    self.scan_toggle.configure(text="Start Scan")
                 pass
             if isinstance(ev, getRange):
                 self.s_range.update_range(ev.distance)
@@ -200,7 +211,7 @@ class MainWindow(ctk.CTk):
                 
 
         # Schedule next poll
-        self.after(SystemConfig.tick_ms, self.poll_events)
+        self.after(self.SystemConfig.tick_ms, self.poll_events)
 
     def on_close(self):
         try:

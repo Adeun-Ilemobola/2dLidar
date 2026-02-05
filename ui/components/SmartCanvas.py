@@ -37,7 +37,6 @@ class SmartCanvas(CTkCanvas):
 
     def update_point_states(self, new_point_states: List[List[PointState]]):
         self.point_states = new_point_states
-        for i, row in enumerate(self.smart_rectangles):
-            for j, smart_rect in enumerate(row):
-                smart_rect.state = new_point_states[i][j]
-                smart_rect.auto_color()
+        self.delete("all")  # Clear existing rectangles
+        self.smart_rectangles.clear()
+        self.create_smart_rectangles()

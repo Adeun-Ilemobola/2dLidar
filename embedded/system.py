@@ -1,10 +1,11 @@
 # embedded/system.py
 from __future__ import annotations
+from math import dist
 import time
 import random
 from typing import Optional
 
-from typing import Dict, List
+from typing import List
 from queue import Queue
 from shared.config import scanRange
 from shared.time import Timer
@@ -17,7 +18,7 @@ from shared.protocol import (
     Command, Event, Log,
     EnableMotor, ScanAreaGrid, SetMotorAngle, SetMotorOffset,
     StartScan, StopScan,
-    MotorState, ScanProgress , PointState, getRange , callRange , setStepSize
+    MotorState, ScanProgress , PointState, continuous_mode, getRange , callRange , setStepSize
 )
 
 
@@ -31,6 +32,8 @@ def clamp_range(min_val, val, max_val) -> float:
 class System:
     def __init__(self, event_q: "Queue[Event]"):
         self.event_Queue = event_q
+        self.scanRangeMas = scanRange()
+
        
 
         self.motors: Dict[str, Motor] = {
@@ -42,8 +45,8 @@ class System:
         self.is_scanning = False
         self.is_continuous_mode = False
         self.step_size = 2 # degrees 2
-        self.scan_range_x = scanRange.range_X_max
-        self.scan_range_y = scanRange.range_Y_Max
+        self.scan_range_x = self.scanRangeMas.range_X_max
+        self.scan_range_y = self.scanRangeMas.range_Y_Max
 
 
         self.scan_x = 0.0
@@ -130,16 +133,36 @@ class System:
                 return
             self.step_size = cmd.step_size
             self.event_Queue.put(Log(f"Step size set to {self.step_size} degrees."))
+        elif isinstance(cmd, continuous_mode):
+            self.is_continuous_mode = cmd.continuous_mode
+            mode_str = "enabled" if self.is_continuous_mode else "disabled"
+            self.event_Queue.put(Log(f"Continuous mode {mode_str}."))
         else:
             self.event_Queue.put(Log(f"Unknown command: {cmd!r}"))
 
     def tick(self) -> None:
         """Called repeatedly by the worker thread."""
         self.lidar.tick()
+        
+
+        if self.is_continuous_mode:
+             if (not self.lidar.collecting) and (self.lidar.readyMm is None):
+                    self.lidar.request()
+                    return
+
+             get_distand = self.lidar.take()
+             if get_distand is None:
+                return
+             self.event_Queue.put(getRange(distance=get_distand))
+             self.lidar.reset()
+             return
+            
+
+
         if  self.is_scanning:
             if self.timer_av == False:
                 self.timer_av = True
-                self.event_Queue.put(ScanProgress(current=0, total=366 , start =True))
+                self.event_Queue.put(ScanProgress(current=0, total=44.0 , start =True))
                 self.scan_start_time = time.perf_counter()
 
             self.scan_mode()
@@ -241,7 +264,7 @@ class System:
             # Publish progress
             self.event_Queue.put(ScanProgress(
                 current=time.perf_counter() - self.scan_start_time,
-                total= 366,
+                total= 44,
                 start = True
             ))
            
@@ -268,10 +291,14 @@ class System:
 
     def send_grid(self) -> None:
         self.event_Queue.put(ScanAreaGrid(points=self.point_grid))
+        self.event_Queue.put(ScanProgress(current=0, total=44.0 , start =False))
+        self.samples_point = []  # Clear after sending
         self.point_grid = []  # Clear after sending
         #reinitialize for next scan
         self.scan_x = self.scan_range_x[0]
         self.scan_y = self.scan_range_y[0]
+        self.scan_start_time = None
+        self.timer_av = False
         self.scan_direction = 1
         self.motors["x"].set_angle(self.scan_range_x[0])
         self.motors["y"].set_angle(self.scan_range_y[1])
