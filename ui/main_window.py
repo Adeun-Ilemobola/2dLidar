@@ -6,7 +6,7 @@ import customtkinter as ctk
 
 from embedded.worker import HardwareWorker
 from shared.config import SystemConfig, scanRange, scanRange
-from shared.protocol import MotorState, Log, ScanProgress , Command , StopScan , StartScan , PointState, getRange , ScanAreaGrid
+from shared.protocol import MotorState, Log, ScanProgress , Command , StopScan , StartScan , PointState, continuous_mode, getRange , ScanAreaGrid
 
 from ui.components.motor_panel import MotorPanel
 from ui.components.ramge_pane import RangePane
@@ -107,7 +107,7 @@ class MainWindow(ctk.CTk):
         # Smart Canvas :  the scan area display
         # ----------------------------
         dummy_point_states = [
-            [PointState(x=j, y=i, distant=random.uniform(0, 400)) for j in range(40)]
+            [PointState(x=j, y=i, distant=random.uniform(390, 400)) for j in range(40)]
             for i in range(40)
         ]
         self.smart_canvas = SmartCanvas(
@@ -146,6 +146,10 @@ class MainWindow(ctk.CTk):
         self.motorY.setDisable(state)
         self.s_range.setDisable(state)
         self.step_entry.setDisable(state)
+    def disable_scan_controls(self, on:bool):
+        state = "normal" if on else "disabled"
+        self.scan_toggle.configure(state=state  , fg_color="#1f6aa5" if on else "#D21010")
+        self.reset_toggle.configure(state=state , fg_color="#1f6aa5" if on else "#D21010")
 
     
     def update_step_size(self , step_size: str):
@@ -160,6 +164,8 @@ class MainWindow(ctk.CTk):
         
     def send_cmd(self, cmd:Command):
         self.cmd_q.put(cmd)
+        if isinstance(cmd, continuous_mode):
+            self.disable_scan_controls(not cmd.continuous_mode)
 
     def poll_events(self):
         while True:
@@ -216,6 +222,7 @@ class MainWindow(ctk.CTk):
     def on_close(self):
         try:
             self.worker.shutdown()
+            pass
         except Exception:
             pass
         self.destroy()
