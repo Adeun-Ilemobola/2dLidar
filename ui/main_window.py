@@ -107,13 +107,13 @@ class MainWindow(ctk.CTk):
         # Smart Canvas :  the scan area display
         # ----------------------------
         dummy_point_states = [
-            [PointState(x=j, y=i, distant=random.uniform(390, 400)) for j in range(40)]
+            [PointState(x=j, y=i, distant=random.uniform(0, 400)) for j in range(40)]
             for i in range(40)
         ]
         self.smart_canvas = SmartCanvas(
             self.root_frame,
-            width=400,
-            height=400,
+            width=size[0] ,
+            height=size[1] - 200,
             point_states=dummy_point_states,
             bg="White"
         )
@@ -163,9 +163,11 @@ class MainWindow(ctk.CTk):
         self.step = step
         
     def send_cmd(self, cmd:Command):
-        self.cmd_q.put(cmd)
         if isinstance(cmd, continuous_mode):
             self.disable_scan_controls(not cmd.continuous_mode)
+            return
+        self.cmd_q.put(cmd)
+       
 
     def poll_events(self):
         while True:
