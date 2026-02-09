@@ -14,4 +14,4 @@ class scanRange:
 
 @dataclass(frozen=True, slots=True)
 class SystemConfig:
-    tick_ms: int = 15  # 20 milliseconds per tick
+    tick_ms: int = 10  # 20 milliseconds per tick

@@ -73,14 +73,14 @@ class SmartCanvas(CTkCanvas):
         if id is not None and gridIndex is not None and ( gridIndex[0] >=0 and  gridIndex[0] < len(self.smart_rectangles) ) and ( gridIndex[1] >=0 and  gridIndex[1] < len(self.smart_rectangles[0]) ) :
             item = self.smart_rectangles[gridIndex[0]][gridIndex[1]]
             self.itemconfig(item.id, fill="#00E5FF")
-            print(f"Hovering over rectangle at grid index: {gridIndex} with distance: {item.state.distant} and id: {id}")
+            # print(f"Hovering over rectangle at grid index: {gridIndex} with distance: {item.state.distant} and id: {id}")
     
     
     def Unhover(self, id:int |None , gridIndex:Tuple[int,int]|None):
         if id is not None and gridIndex is not None and ( gridIndex[0] >=0 and  gridIndex[0] < len(self.smart_rectangles) ) and ( gridIndex[1] >=0 and  gridIndex[1] < len(self.smart_rectangles[0]) ) :
             item = self.smart_rectangles[gridIndex[0]][gridIndex[1]]
             item.auto_color()
-            print(f"Unhovering rectangle at grid index: {gridIndex} with distance: {item.state.distant} and id: {id}")
+            # print(f"Unhovering rectangle at grid index: {gridIndex} with distance: {item.state.distant} and id: {id}")
        
     
     def update_point_states(self, new_point_states: List[List[PointState]]):

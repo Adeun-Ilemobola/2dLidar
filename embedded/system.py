@@ -3,7 +3,7 @@ from __future__ import annotations
 from math import dist
 import time
 import random
-from typing import Optional
+from typing import Optional , Dict
 
 from typing import List
 from queue import Queue
@@ -37,8 +37,8 @@ class System:
        
 
         self.motors: Dict[str, Motor] = {
-            "x": Motor(ServoConfig(channel=0),),
-            "y": Motor(ServoConfig(channel=2), ),
+            "x": Motor(ServoConfig(channel=3),),
+            "y": Motor(ServoConfig(channel=0), ),
         }
         self.lidar =VL53L1XSensor(VL53L1XConfig())
 
@@ -144,8 +144,9 @@ class System:
         """Called repeatedly by the worker thread."""
         self.lidar.tick()
         
+        
 
-        if self.is_continuous_mode:
+        if self.is_continuous_mode: 
              if (not self.lidar.collecting) and (self.lidar.readyMm is None):
                     self.lidar.request()
                     return
@@ -222,7 +223,7 @@ class System:
     def scan_mode(self):
 
         if self.is_scanning and not self.motors["x"].testMode and not self.motors["y"].testMode:
-            self.lidar.tick()
+            # self.lidar.tick()
 
             if (not self.lidar.collecting) and (self.lidar.readyMm is None):
                 self.lidar.request()

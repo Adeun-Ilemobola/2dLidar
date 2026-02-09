@@ -165,7 +165,7 @@ class MainWindow(ctk.CTk):
     def send_cmd(self, cmd:Command):
         if isinstance(cmd, continuous_mode):
             self.disable_scan_controls(not cmd.continuous_mode)
-            return
+            
         self.cmd_q.put(cmd)
        
 
