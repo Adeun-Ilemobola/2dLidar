@@ -107,7 +107,7 @@ class MainWindow(ctk.CTk):
         # Smart Canvas :  the scan area display
         # ----------------------------
         dummy_point_states = [
-            [PointState(x=j, y=i, distant=random.uniform(0, 400)) for j in range(40)]
+            [PointState(x=j, y=i, distant=-1) for j in range(40)]
             for i in range(40)
         ]
         self.smart_canvas = SmartCanvas(

@@ -98,3 +98,11 @@ class SmartCanvas(CTkCanvas):
         self.delete("all")  # Clear existing rectangles
         self.smart_rectangles.clear()
         self.create_smart_rectangles()
+
+    def Update_point_grid(self, new_point_state: List[PointState]):
+        for state in new_point_state:
+            rect = self.get_rectangle_by_coordinates(state.x, state.y)
+            if rect:
+                rect.state.distant = state.distant
+                rect.auto_color()
+      
