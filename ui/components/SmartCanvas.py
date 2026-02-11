@@ -43,7 +43,12 @@ class SmartCanvas(CTkCanvas):
                 row_rectangles.append(smart_rect)
             self.smart_rectangles.append(row_rectangles)
     
-    
+    def setPoint(self, state: PointState):
+        rect = self.get_rectangle_by_coordinates(state.x, state.y)
+        if rect:
+            rect.state.distant = state.distant
+            rect.auto_color()
+        
     
     def on_select_point(self, selRect:SmartRectangle):
         # This method is called when a SmartRectangle is clicked. It updates point_1 and point_2 based on the selection.
@@ -67,7 +72,12 @@ class SmartCanvas(CTkCanvas):
         if ( gridIndex[0] >=0 and  gridIndex[0] < len(self.smart_rectangles) ) and ( gridIndex[1] >=0 and  gridIndex[1] < len(self.smart_rectangles[0]) ) :
             return self.smart_rectangles[gridIndex[0]][gridIndex[1]]
         return None
-    
+    def get_rectangle_by_coordinates(self, x: int ,y:int) -> SmartRectangle | None:
+        for row in self.smart_rectangles:
+            for rect in row:
+                if rect.state.x == x and rect.state.y == y:
+                    return rect
+        return None
     
     def Hover(self, id:int |None , gridIndex:Tuple[int,int]|None):
         if id is not None and gridIndex is not None and ( gridIndex[0] >=0 and  gridIndex[0] < len(self.smart_rectangles) ) and ( gridIndex[1] >=0 and  gridIndex[1] < len(self.smart_rectangles[0]) ) :

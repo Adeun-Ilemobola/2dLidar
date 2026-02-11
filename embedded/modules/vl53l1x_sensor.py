@@ -52,10 +52,7 @@ class VL53L1XSensor:
 
     def tick(self) -> None:
         """Call once per System tick; advances sampling state machine."""
-        if self.sensor is None:
-            return
-
-        if not self.collecting:
+        if hasattr(self.sensor, "data_ready") and not self.sensor.data_ready:
             return
 
         try:
@@ -69,13 +66,13 @@ class VL53L1XSensor:
 
         self.samples.append(mm)
 
-        # Clear interrupt / schedule next reading (driver-dependent)
         if hasattr(self.sensor, "clear_interrupt"):
             try:
                 self.sensor.clear_interrupt()
             except Exception:
                 pass
 
+        # --- Early Exit Optimization (2 samples) ---
         if len(self.samples) == 2:
             a, b = self.samples
             if abs(a - b) <= self.cfg.tol_mm:
@@ -83,6 +80,7 @@ class VL53L1XSensor:
                 self.readyMm = (a + b) / 2.0
                 return
 
+        # --- Full Filter (3 samples) ---
         if len(self.samples) >= 3:
             self.collecting = False
             a, b, c = self.samples[:3]

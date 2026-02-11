@@ -223,8 +223,7 @@ class System:
     def scan_mode(self):
 
         if self.is_scanning and not self.motors["x"].testMode and not self.motors["y"].testMode:
-            # self.lidar.tick()
-
+           
             if (not self.lidar.collecting) and (self.lidar.readyMm is None):
                 self.lidar.request()
                 return
@@ -232,6 +231,8 @@ class System:
             dist = self.lidar.take()
             if dist is None:
                 return
+            
+            self.lidar.request()
 
             # get current motor angles
             current_x = self.motors["x"].get_angle()
