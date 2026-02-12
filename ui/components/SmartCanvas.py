@@ -51,23 +51,35 @@ class SmartCanvas(CTkCanvas):
         
     
     def on_select_point(self, selRect:SmartRectangle):
-        # This method is called when a SmartRectangle is clicked. It updates point_1 and point_2 based on the selection.
-        if self.point_1 is not  selRect :
-           self.point_1 = selRect
-        elif self.point_2 is not selRect and selRect is not self.point_1:
-            self.point_2 = selRect
+        if (self.point_1 is not  None and self.point_2 is not None) and (selRect is not self.point_1 and  selRect is not self.point_2):
+            print("Both points are already selected. stop selecting more.")
+            return  # Ignore clicks on other rectangles when both points are selected
 
+        # This method is called when a SmartRectangle is clicked. It updates point_1 and point_2 based on the selection.
+        if self.point_1 is not  selRect and  self.point_1 is None:
+           self.point_1 = selRect
+           self.point_1.is_selected = True
+           self.point_1.auto_color()  # Update color based on selection
+           print(f"Selected Point 1 at grid index {self.point_1.gridIndex} with distance {self.point_1.state.distant}")
+           return
+        elif (self.point_2 is not selRect and self.point_2 is None) and selRect is not self.point_1:
+            self.point_2 = selRect
+            self.point_2.is_selected = True
+            self.point_2.auto_color()  # Update color based on selection
+            print(f"Selected Point 2 at grid index {self.point_2.gridIndex} with distance {self.point_2.state.distant}")
+            return
         # If the clicked rectangle is already selected, deselect it
         if self.point_1 is selRect:
+            print(f"Deselected Point 1 at grid index {self.point_1.gridIndex} with distance {self.point_1.state.distant}")
+            self.point_1.is_selected = False
+            self.point_1.auto_color()  # Update color based on deselection
             self.point_1 = None
         elif self.point_2 is selRect:
+            print(f"Deselected Point 2 at grid index {self.point_2.gridIndex} with distance {self.point_2.state.distant}")
+            self.point_2.is_selected = False
+            self.point_2.auto_color()  # Update color based on deselection
             self.point_2 = None
 
-        # Print the selected points and their distances for debugging
-        if self.point_1 is not None and self.point_2 is not None:
-            print(f"Selected points: Point 1 at grid index {self.point_1.gridIndex} with distance {self.point_1.state.distant}, Point 2 at grid index {self.point_2.gridIndex} with distance {self.point_2.state.distant}")
-          
-      
     def get_rectangle_by_grid_index(self, gridIndex: Tuple[int,int]) -> SmartRectangle | None:
         if ( gridIndex[0] >=0 and  gridIndex[0] < len(self.smart_rectangles) ) and ( gridIndex[1] >=0 and  gridIndex[1] < len(self.smart_rectangles[0]) ) :
             return self.smart_rectangles[gridIndex[0]][gridIndex[1]]
@@ -89,7 +101,10 @@ class SmartCanvas(CTkCanvas):
     def Unhover(self, id:int |None , gridIndex:Tuple[int,int]|None):
         if id is not None and gridIndex is not None and ( gridIndex[0] >=0 and  gridIndex[0] < len(self.smart_rectangles) ) and ( gridIndex[1] >=0 and  gridIndex[1] < len(self.smart_rectangles[0]) ) :
             item = self.smart_rectangles[gridIndex[0]][gridIndex[1]]
-            item.auto_color()
+            if not item.is_selected:  # Only change color if it's not selected
+              self.itemconfig(item.id, fill=item.main_color)
+            else:
+              item.auto_color()  # Reset to the appropriate color based on distance and selection state
             # print(f"Unhovering rectangle at grid index: {gridIndex} with distance: {item.state.distant} and id: {id}")
        
     

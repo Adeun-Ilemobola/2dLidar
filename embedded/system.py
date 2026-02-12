@@ -163,7 +163,7 @@ class System:
         if  self.is_scanning:
             if self.timer_av == False:
                 self.timer_av = True
-                self.event_Queue.put(ScanProgress(current=0, total=44.0 , start =True))
+                self.event_Queue.put(ScanProgress(current=0, total=self.scanRangeMas.avg_scan_time, start =True))
                 self.scan_start_time = time.perf_counter()
 
             self.scan_mode()
@@ -266,7 +266,7 @@ class System:
             # Publish progress
             self.event_Queue.put(ScanProgress(
                 current=time.perf_counter() - self.scan_start_time,
-                total= 44,
+                total= self.scanRangeMas.avg_scan_time,
                 start = True
             ))
            
@@ -293,7 +293,7 @@ class System:
 
     def send_grid(self) -> None:
         self.event_Queue.put(ScanAreaGrid(points=self.point_grid))
-        self.event_Queue.put(ScanProgress(current=0, total=44.0 , start =False))
+        self.event_Queue.put(ScanProgress(current=0, total=self.scanRangeMas.avg_scan_time, start=False))
         self.samples_point = []  # Clear after sending
         self.point_grid = []  # Clear after sending
         #reinitialize for next scan

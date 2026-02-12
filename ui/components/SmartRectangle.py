@@ -12,7 +12,7 @@ class SmartRectangle:
         # Create the actual canvas item and store its ID
         self.id = self.canvas.create_rectangle(x1, y1, x2, y2, **kwargs)
         
-        self.canvas.tag_bind(self.id, "<Button-1>", self.on_click)
+        self.canvas.tag_bind(self.id, "<Button-1>", lambda e: self.on_select(self))  # Bind click event to selection callback
         self.canvas.tag_bind(self.id, "<Enter>", lambda e: hover(self.id, self.gridIndex))
         self.canvas.tag_bind(self.id, "<Leave>", lambda e: unhover(self.id, self.gridIndex))
 
@@ -24,42 +24,42 @@ class SmartRectangle:
 
        
         self.color_selected = "#FF2FB3"
+        self.main_color = "#1e2121"
         self.auto_color()
 
-    def on_click(self, event):
-       
-        if not self.is_selected:
-            self.is_selected = True
-            self.canvas.itemconfig(self.id, fill=self.color_selected)
-            self.on_select(self)  # Notify the SmartCanvas of the selection
-        else:
-            self.is_selected = False
-            self.auto_color()
-            self.on_select(self)  # Notify the SmartCanvas of the deselection
-
+    
     def auto_color(self):
         distance = self.state.distant
         if self.is_selected:
             self.canvas.itemconfig(self.id, fill=self.color_selected)
             return  # Keep selected color
         if self.is_void:
-            self.canvas.itemconfig(self.id, fill="#6C757D")
+            self.canvas.itemconfig(self.id, fill="#1e2121")
+            self.main_color = "#1e2121"
             return
         
         if distance >= 0 and distance < 80:
             self.canvas.itemconfig(self.id, fill="#D64545")
+            self.main_color = "#D64545"
         elif distance >= 80 and distance < 160:
             self.canvas.itemconfig(self.id, fill="#E07A3F")
+            self.main_color = "#E07A3F"
         elif distance >= 160 and distance < 240:
             self.canvas.itemconfig(self.id, fill="#E6B566")
+            self.main_color = "#E6B566"
         elif distance >= 240 and distance < 390:
             self.canvas.itemconfig(self.id, fill="#6FAF8F")
+            self.main_color = "#6FAF8F"
         elif distance >= 390 and distance < 400:
             self.canvas.itemconfig(self.id, fill="#4C6FAE")
+            self.main_color = "#4C6FAE"
         elif distance >= 400:
-            self.canvas.itemconfig(self.id, fill="#2A2E2E")
+            self.canvas.itemconfig(self.id, fill="#1e2121")
             self.is_void = True
+            self.main_color = "#1e2121"
         else:
             self.is_void = True
-            self.canvas.itemconfig(self.id, fill="#2A2E2E")  # Default color for invalid distances
+            self.canvas.itemconfig(self.id, fill="#1e2121")  # Default color for invalid distance
+            self.main_color = "#1e2121"
+        
     
