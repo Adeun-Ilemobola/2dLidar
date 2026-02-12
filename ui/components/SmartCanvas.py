@@ -51,7 +51,7 @@ class SmartCanvas(CTkCanvas):
         
     
     def on_select_point(self, selRect:SmartRectangle):
-        if (self.point_1 is not  None and self.point_2 is not None) and (selRect is not self.point_1 and  selRect is not self.point_2):
+        if (self.point_1 is not  None and self.point_2 is not None) and (selRect.id != self.point_1.id and  selRect.id != self.point_2.id):
             print("Both points are already selected. stop selecting more.")
             return  # Ignore clicks on other rectangles when both points are selected
 
@@ -60,22 +60,26 @@ class SmartCanvas(CTkCanvas):
            self.point_1 = selRect
            self.point_1.is_selected = True
            self.point_1.auto_color()  # Update color based on selection
-           print(f"Selected Point 1 at grid index {self.point_1.gridIndex} with distance {self.point_1.state.distant}")
+           print(f"Selected Point 1 at [ grid index {self.point_1.gridIndex}] | [cod pos {self.point_1.state.x}, {self.point_1.state.y}] with distance {self.point_1.state.distant}")
            return
         elif (self.point_2 is not selRect and self.point_2 is None) and selRect is not self.point_1:
             self.point_2 = selRect
             self.point_2.is_selected = True
             self.point_2.auto_color()  # Update color based on selection
-            print(f"Selected Point 2 at grid index {self.point_2.gridIndex} with distance {self.point_2.state.distant}")
+            print(f"Selected Point 2 at [ grid index {self.point_2.gridIndex}] | [cod pos {self.point_2.state.x}, {self.point_2.state.y}] with distance {self.point_2.state.distant}")
             return
+        
+
         # If the clicked rectangle is already selected, deselect it
-        if self.point_1 is selRect:
-            print(f"Deselected Point 1 at grid index {self.point_1.gridIndex} with distance {self.point_1.state.distant}")
+        if self.point_1 and self.point_1.id == selRect.id:
+            print(f"Deselected Point 1 at [ grid index {self.point_1.gridIndex}] | [cod pos {self.point_1.state.x}, {self.point_1.state.y}] with distance {self.point_1.state.distant}")
             self.point_1.is_selected = False
             self.point_1.auto_color()  # Update color based on deselection
             self.point_1 = None
-        elif self.point_2 is selRect:
-            print(f"Deselected Point 2 at grid index {self.point_2.gridIndex} with distance {self.point_2.state.distant}")
+
+
+        if  self.point_2 and self.point_2.id == selRect.id:
+            print(f"Deselected Point 2 at [ grid index {self.point_2.gridIndex}] | [cod pos {self.point_2.state.x}, {self.point_2.state.y}] with distance {self.point_2.state.distant}")
             self.point_2.is_selected = False
             self.point_2.auto_color()  # Update color based on deselection
             self.point_2 = None
