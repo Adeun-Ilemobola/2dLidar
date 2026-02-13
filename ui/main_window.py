@@ -8,7 +8,7 @@ import customtkinter as ctk
 import tkinter as tk
 
 
-# from embedded.worker import HardwareWorker
+from embedded.worker import HardwareWorker
 from shared.config import SystemConfig, scanRange, scanRange
 from shared.protocol import MinMaxResult, MotorState, Log, ScanProgress , Command , StopScan , StartScan , PointState, continuous_mode, findMinMax, getRange , ScanAreaGrid
 
@@ -32,8 +32,8 @@ class MainWindow(ctk.CTk):
         self.event_q: "queue.Queue" = queue.Queue()
 
         # Worker thread
-        # self.worker = HardwareWorker(self.cmd_q, self.event_q)
-        # self.worker.start()
+        self.worker = HardwareWorker(self.cmd_q, self.event_q)
+        self.worker.start()
         self.SystemConfig = SystemConfig()
 
         #State verbals
@@ -263,8 +263,7 @@ class MainWindow(ctk.CTk):
 
     def on_close(self):
         try:
-            # self.worker.shutdown()
-            pass
+            self.worker.shutdown()
         except Exception:
             pass
         self.destroy()

@@ -75,19 +75,21 @@ class Motor:
     def set_angle(self, angle_deg: float) -> None:
          if not self.enabled and self.Servo is not None:
             return
-         print(f"[DRV] angle_deg={angle_deg}")
+        
 
          # keep physical in range
          min_logical = self.cfg.min_angle_deg - self.offset_deg
          max_logical = self.cfg.max_angle_deg - self.offset_deg
          self.angle_deg = max(min_logical, min(angle_deg, max_logical))
          self.apply_to_hardware()
+         print(f"[DRV] set_angle: requested={angle_deg}, logical={self.angle_deg}, offset={self.offset_deg}, physical={self.last_physical}")
 
     def get_offset(self) -> float:
         return self.offset_deg
 
     def set_offset(self, offset_deg: float) -> None:
-        print(f"[DRV] offset_deg={offset_deg}")
+        print(f"[DRV] set_offset: requested={offset_deg}, current_offset={self.offset_deg}, current_physical={self.last_physical}")
+         # keep offset in range
         self.offset_deg = offset_deg
         if self.enabled:
            

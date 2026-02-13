@@ -38,7 +38,7 @@ class System:
 
         self.motors: Dict[str, Motor] = {
             "x": Motor(ServoConfig(channel=3),),
-            "y": Motor(ServoConfig(channel=0), ),
+            "y": Motor(ServoConfig(channel=15), ),
         }
         self.lidar =VL53L1XSensor(VL53L1XConfig())
 
