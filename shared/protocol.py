@@ -49,9 +49,25 @@ class setStepSize:
 class continuous_mode:
     continuous_mode : bool
 
-Command = Union[EnableMotor, SetMotorAngle, SetMotorOffset, StartScan, StopScan , stopCommands , resumeCommands , callRange, setStepSize]
+
+#  commands to find the minimum maximum for each axis, the Y axis, and the X axis
+@dataclass(frozen=True, slots=True)
+class findMinMax:
+    axis : Axis
+    action : Literal["start", "stop"]
+
+Command = Union[EnableMotor, SetMotorAngle, SetMotorOffset, StartScan, StopScan , stopCommands , resumeCommands , callRange, setStepSize , continuous_mode , findMinMax]
 
 # ---------- Events (embedded -> UI) ----------
+
+# result of finding of them minimum on maximum range for the axis
+@dataclass(frozen=True, slots=True)
+class MinMaxResult:
+    axis : Axis
+    min_angle : float
+    max_angle : float
+
+
 @dataclass(frozen=True, slots=True)
 class MotorState:
     axis: Axis
@@ -93,7 +109,7 @@ class ScanAreaGrid:
 class getRange:
     distance : float
 
-Event = Union[MotorState, Log, ScanProgress , PointState , ScanAreaGrid , getRange]
+Event = Union[MotorState, Log, ScanProgress , PointState , ScanAreaGrid , getRange , MinMaxResult]
 
 
 # ---------- universal types ----------

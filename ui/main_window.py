@@ -1,13 +1,18 @@
 """Main application window. Ui/main_window.py """
 # import queue
+from collections.abc import Callable
+from curses.panel import panel
 import random
 import queue
 import customtkinter as ctk
+import tkinter as tk
 
-from embedded.worker import HardwareWorker
+
+# from embedded.worker import HardwareWorker
 from shared.config import SystemConfig, scanRange, scanRange
-from shared.protocol import MotorState, Log, ScanProgress , Command , StopScan , StartScan , PointState, continuous_mode, getRange , ScanAreaGrid
+from shared.protocol import MinMaxResult, MotorState, Log, ScanProgress , Command , StopScan , StartScan , PointState, continuous_mode, findMinMax, getRange , ScanAreaGrid
 
+from ui.components.AngleStatusPanel import AngleStatusPanel
 from ui.components.motor_panel import MotorPanel
 from ui.components.ramge_pane import RangePane
 from ui.components.SmartCanvas import SmartCanvas
@@ -27,8 +32,8 @@ class MainWindow(ctk.CTk):
         self.event_q: "queue.Queue" = queue.Queue()
 
         # Worker thread
-        self.worker = HardwareWorker(self.cmd_q, self.event_q)
-        self.worker.start()
+        # self.worker = HardwareWorker(self.cmd_q, self.event_q)
+        # self.worker.start()
         self.SystemConfig = SystemConfig()
 
         #State verbals
@@ -38,6 +43,20 @@ class MainWindow(ctk.CTk):
         # Layout containers
         self.root_frame = ctk.CTkFrame(self)
         self.root_frame.pack(fill="both", expand=True, padx=12, pady=12)
+
+
+        
+        menubar = tk.Menu(self)
+
+        file_menu = tk.Menu(menubar, tearoff=0)
+        file_menu.add_command(label="Open MotorConfig", command=self.open_motor_config)
+
+       
+        file_menu.add_separator()
+        file_menu.add_command(label="Exit", command=self.destroy)
+        menubar.add_cascade(label="Config", menu=file_menu)
+        self.config(menu=menubar)
+
 
         # Root grid sizing: 3 top columns + canvas row
         self.root_frame.grid_rowconfigure(0, weight=0)
@@ -120,6 +139,9 @@ class MainWindow(ctk.CTk):
         self.smart_canvas.grid(row=1, column=0, columnspan=3, sticky="nsew", padx=8, pady=8)
 
 
+        self._motor_config_win = None  # will hold the motor config window if it's open
+
+
         # Start polling events
         self.after(self.SystemConfig.tick_ms, self.poll_events)
 
@@ -165,9 +187,23 @@ class MainWindow(ctk.CTk):
     def send_cmd(self, cmd:Command):
         if isinstance(cmd, continuous_mode):
             self.disable_scan_controls(not cmd.continuous_mode)
-            
+        if isinstance(cmd, findMinMax) and cmd.action == "start":
+            self.disable_scan_controls(True)
+            self.enable_widget(False)
+        if isinstance(cmd, findMinMax) and cmd.action == "stop":
+            self.disable_scan_controls(False)
+            self.enable_widget(True)
+
         self.cmd_q.put(cmd)
-       
+    def open_motor_config(self):
+         print("Opening motor config window...")
+         if self._motor_config_win and self._motor_config_win.winfo_exists():
+             print("Motor config window already open, focusing...")
+             self._motor_config_win.focus()
+             return
+
+         self._motor_config_win = MotorConfigPanel(self, send_cmd=self.send_cmd)
+         self._motor_config_win.focus()
 
     def poll_events(self):
         while True:
@@ -215,6 +251,10 @@ class MainWindow(ctk.CTk):
                 print(f"Range distance: {ev.distance} mm")
             if isinstance(ev, ScanAreaGrid):
                 self.smart_canvas.update_point_states(ev.points)
+            
+            if isinstance(ev, MinMaxResult):
+                print(f"MinMaxResult: axis={ev.axis}, min_angle={ev.min_angle}, max_angle={ev.max_angle}")
+               
            
                 
 
@@ -223,8 +263,45 @@ class MainWindow(ctk.CTk):
 
     def on_close(self):
         try:
-            self.worker.shutdown()
+            # self.worker.shutdown()
             pass
         except Exception:
             pass
+        self.destroy()
+
+
+# ----------
+
+
+
+class MotorConfigPanel(ctk.CTkToplevel):
+    def __init__(self, master, send_cmd:Callable[[Command], None], **kwargs):
+        super().__init__(master, **kwargs)
+
+        self.app = master
+        self.send_cmd = send_cmd
+
+        self.title("Motor Configuration")
+        self.geometry("470x420")
+
+        # Layout
+        self.grid_columnconfigure(0, weight=1)
+
+        panelX = AngleStatusPanel(self, command=self.send_cmd, Axis="x")
+        print(AngleStatusPanel, type(AngleStatusPanel))
+
+        panelX.grid(row=0, column=0, padx=12, pady=12, sticky="ew")
+
+        panelY = AngleStatusPanel(self, command=self.send_cmd, Axis="y")
+        panelY.grid(row=1, column=0, padx=12, pady=12, sticky="ew")
+
+        # Close handler
+        self.protocol("WM_DELETE_WINDOW", self.on_close)
+
+        # Optional: keep on top of the main window
+        self.transient(master)
+        self.grab_set()
+
+    def on_close(self):
+        print("Closing MotorConfigPanel")
         self.destroy()

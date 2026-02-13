@@ -16,7 +16,7 @@ from embedded.modules.motors import Motor, ServoConfig
 from embedded.modules.vl53l1x_sensor import VL53L1XSensor , VL53L1XConfig
 from shared.protocol import (
     Command, Event, Log,
-    EnableMotor, ScanAreaGrid, SetMotorAngle, SetMotorOffset,
+    EnableMotor, MinMaxResult, ScanAreaGrid, SetMotorAngle, SetMotorOffset,
     StartScan, StopScan,
     MotorState, ScanProgress , PointState, continuous_mode, getRange , callRange , setStepSize
 )
@@ -58,26 +58,23 @@ class System:
 
 
 
-        # the test mode enables continuous movement for testing
-        # self.sleep_time_max_x = 2  # seconds
-        # self.sleep_time_max_y = 2.5  # seconds
-
-        # self.current_sleep_x = 0.0
-        # self.current_sleep_y = 0.0
-        self.test_index = 0
-        self.list_move = [random.randint(-35, 35) for _ in range(10)]
-        self.test_timer = None
-
-
-        self.max_lap = 50
-        self.current_lap = 0
-
+        
 
         self.getRamge = False
 
 
         self.scan_start_time = None
         self.timer_av = False
+
+        #  axis test mode, mini marks
+        self.min_max_X = [-1.0, -1.0]
+        self.min_max_Y = [-1.0, -1.0]
+        self.rangeMax = 400
+        self.rangeMin = 7.1
+        self.test_MinMax = "stop" # "start" or "stop"
+        self.test_axis = "x" # "x" or "y"
+        self.max_cycle = 5
+        self.cycle_count = 0
 
 
 
@@ -97,54 +94,12 @@ class System:
 
         self.event_Queue.put(Log("System configured."))
 
-    def handle(self, cmd: Command) -> None:
-        if isinstance(cmd, EnableMotor):
-            m = self.motors[cmd.axis]
-            m.enable(cmd.enabled)
-            self.publish_motor(cmd.axis)
-
-        elif isinstance(cmd, SetMotorAngle):
-            m = self.motors[cmd.axis]
-            m.set_angle(cmd.angle_deg)
-            self.publish_motor(cmd.axis)
-
-        elif isinstance(cmd, SetMotorOffset):
-            m = self.motors[cmd.axis]
-            m.set_offset(cmd.offset_deg)
-            self.publish_motor(cmd.axis)
-
-        elif isinstance(cmd, StartScan):
-            self.is_scanning = True
-            self.scan_x = self.scan_range_x[0]
-            self.scan_y = self.scan_range_y[0]
-            self.scan_direction = 1 
-            self.event_Queue.put(Log("Scan started."))
-
-        elif isinstance(cmd, StopScan):
-            self.is_scanning = False
-            self.event_Queue.put(Log("Scan stopped."))
-        
-        elif isinstance(cmd, callRange):
-            self.getRamge = True
-            self.event_Queue.put(Log("Range requested."))
-        elif isinstance(cmd, setStepSize):
-            if cmd.step_size <=0 or cmd.step_size > (self.scan_range_x[1] - self.scan_range_x[0]) or cmd.step_size > 5:
-                self.event_Queue.put(Log(f"Invalid step size: {cmd.step_size}. Must be positive and within scan range."))
-                return
-            self.step_size = cmd.step_size
-            self.event_Queue.put(Log(f"Step size set to {self.step_size} degrees."))
-        elif isinstance(cmd, continuous_mode):
-            self.is_continuous_mode = cmd.continuous_mode
-            mode_str = "enabled" if self.is_continuous_mode else "disabled"
-            self.event_Queue.put(Log(f"Continuous mode {mode_str}."))
-        else:
-            self.event_Queue.put(Log(f"Unknown command: {cmd!r}"))
-
+    
     def tick(self) -> None:
         """Called repeatedly by the worker thread."""
         self.lidar.tick()
-        
-        
+
+        self.find_min_max_mode()
 
         if self.is_continuous_mode: 
              if (not self.lidar.collecting) and (self.lidar.readyMm is None):
@@ -180,46 +135,60 @@ class System:
                 self.lidar.reset()
 
 
-    def testScanMode(self):
+    def continuous_mode(self,) -> float | None:
+        if (not self.lidar.collecting) and (self.lidar.readyMm is None):
+            self.lidar.request()
+            return None
+        get_distand = self.lidar.take()
+        if get_distand is None:
+            return None
+        self.lidar.reset()
+        return get_distand
         
+    def find_min_max_mode(self):
+        if self.test_MinMax == "start":
+            m = self.motors[self.test_axis]
+            current_angle = m.get_angle()
+            Direction = 1 
+            if (current_angle >= 180.0):
+                self.cycle_count += 1
+                if self.cycle_count >= self.max_cycle:
+                    self.test_MinMax = "stop"
+                    self.cycle_count = 0
+                    self.event_Queue.put(Log(f"Min-Max test completed for axis {self.test_axis}."))
+                    if self.test_axis == "x":
+                        self.event_Queue.put(MinMaxResult(
+                            axis="x",
+                            min_angle=self.min_max_X[0],
+                            max_angle=self.min_max_X[1]
+                        ))
+                    elif self.test_axis == "y":
+                        self.event_Queue.put(MinMaxResult(
+                            axis="y",
+                            min_angle=self.min_max_Y[0],
+                            max_angle=self.min_max_Y[1]
+                        ))
+                    return
+                Direction = -1
+            elif (current_angle >= 0.0):
+                Direction = 1
+               
+            rang = self.continuous_mode()
+            if rang is not None:
+                if  self.test_axis == "x":
+                    if rang > 7.0: # ignore extremely small numbers
+                        if rang > self.rangeMax:
+                            self.rangeMax = rang
+                            self.min_max_X[1] = current_angle
+                        if rang < self.rangeMin:
+                            self.rangeMin = rang
+                            self.min_max_X[0] = current_angle
+                    pass
+                elif self.test_axis == "y":
+                   pass
 
-        if not hasattr(self, "test_timer") or self.test_timer is None:
-            self.test_timer = Timer(duration_s=0.1, tick_s=0.020)
-            self.test_timer.start()
-
-        self.test_timer.tick()
-
-        if self.test_timer.done():
-            self.test_timer.reset()
-            self.test_timer.start()
-
-            if self.current_lap >= self.max_lap:
-                self.is_scanning = False
-                self.send_grid()
-                self.test_timer = None
-                self.event_Queue.put(Log("Test Scan Complete."))
-                return
-            
-    
-            # Move X Motor
-            new_x = self.list_move[self.test_index % len(self.list_move)]
-            self.motors["x"].set_angle(new_x)
-
-            # Move Y Motor
-            new_y = self.list_move[self.test_index % len(self.list_move)]
-            self.motors["y"].set_angle(new_y)
-
-            self.test_index += 1
-            if self.test_index % len(self.list_move) == 0:
-                self.current_lap += 1
-
-
-
-        self.publish_motor("x")
-        self.publish_motor("y")
-    
-       
-
+                m.set_angle(current_angle + self.step_size * Direction)
+                self.publish_motor(self.test_axis)
     def scan_mode(self):
 
         if self.is_scanning and not self.motors["x"].testMode and not self.motors["y"].testMode:
@@ -307,6 +276,49 @@ class System:
         self.publish_motor("x")
         self.publish_motor("y")
     
+    def handle(self, cmd: Command) -> None:
+        if isinstance(cmd, EnableMotor):
+            m = self.motors[cmd.axis]
+            m.enable(cmd.enabled)
+            self.publish_motor(cmd.axis)
+
+        elif isinstance(cmd, SetMotorAngle):
+            m = self.motors[cmd.axis]
+            m.set_angle(cmd.angle_deg)
+            self.publish_motor(cmd.axis)
+
+        elif isinstance(cmd, SetMotorOffset):
+            m = self.motors[cmd.axis]
+            m.set_offset(cmd.offset_deg)
+            self.publish_motor(cmd.axis)
+
+        elif isinstance(cmd, StartScan):
+            self.is_scanning = True
+            self.scan_x = self.scan_range_x[0]
+            self.scan_y = self.scan_range_y[0]
+            self.scan_direction = 1 
+            self.event_Queue.put(Log("Scan started."))
+
+        elif isinstance(cmd, StopScan):
+            self.is_scanning = False
+            self.event_Queue.put(Log("Scan stopped."))
+        
+        elif isinstance(cmd, callRange):
+            self.getRamge = True
+            self.event_Queue.put(Log("Range requested."))
+        elif isinstance(cmd, setStepSize):
+            if cmd.step_size <=0 or cmd.step_size > (self.scan_range_x[1] - self.scan_range_x[0]) or cmd.step_size > 5:
+                self.event_Queue.put(Log(f"Invalid step size: {cmd.step_size}. Must be positive and within scan range."))
+                return
+            self.step_size = cmd.step_size
+            self.event_Queue.put(Log(f"Step size set to {self.step_size} degrees."))
+        elif isinstance(cmd, continuous_mode):
+            self.is_continuous_mode = cmd.continuous_mode
+            mode_str = "enabled" if self.is_continuous_mode else "disabled"
+            self.event_Queue.put(Log(f"Continuous mode {mode_str}."))
+        else:
+            self.event_Queue.put(Log(f"Unknown command: {cmd!r}"))
+
     # ---------- helpers ----------
     
 
