@@ -231,7 +231,7 @@ class System:
                 y=current_y,
                 distant=dist
             ))
-
+            self.point_grid.append(self.samples_point)
             # Calculate the next position
             next_x = self.scan_x + (self.step_size * self.scan_direction)
 
@@ -243,7 +243,6 @@ class System:
             # We hit a wall: Time to move Y down and flip X direction
                 self.scan_y += self.step_size
                 self.scan_direction *= -1 # Flip direction
-                self.point_grid.append(self.samples_point)
                 self.samples_point = []  # Clear for next row
             # Clamp X to the edge so we don't overshoot
                 self.scan_x = self.scan_range_x[1] if hit_right else self.scan_range_x[0]
@@ -280,7 +279,7 @@ class System:
 
     def send_grid(self) -> None:
         self.event_Queue.put(ScanAreaGrid(points=self.point_grid))
-        self.event_Queue.put(ScanProgress(current=0, total=self.scanRangeMas.avg_scan_time, start=False))
+        # self.event_Queue.put(ScanProgress(current=0, total=self.scanRangeMas.avg_scan_time, start=False))
         self.samples_point = []  # Clear after sending
         self.point_grid = []  # Clear after sending
         #reinitialize for next scan
