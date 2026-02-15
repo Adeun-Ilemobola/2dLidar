@@ -10,7 +10,7 @@ import tkinter as tk
 
 from embedded.worker import HardwareWorker
 from shared.config import SystemConfig, scanRange, scanRange
-from shared.protocol import MinMaxResult, MotorState, Log, ScanProgress , Command , StopScan , StartScan , PointState, continuous_mode, findMinMax, getRange , ScanAreaGrid
+from shared.protocol import MinMaxResult, MotorState, Log, ScanProgress , Command , StopScan , StartScan , PointState, continuous_mode, findMinMax, getRange , ScanAreaGrid ,Event
 
 from ui.components.AngleStatusPanel import AngleStatusPanel
 from ui.components.motor_panel import MotorPanel
@@ -202,7 +202,7 @@ class MainWindow(ctk.CTk):
              self._motor_config_win.focus()
              return
 
-         self._motor_config_win = MotorConfigPanel(self, send_cmd=self.send_cmd)
+         self._motor_config_win = MotorConfigPanel(self, tick=self.SystemConfig.tick_ms , event_q=self.event_q , send_cmd=self.send_cmd)
          self._motor_config_win.focus()
 
     def poll_events(self):
@@ -251,12 +251,7 @@ class MainWindow(ctk.CTk):
                 print(f"Range distance: {ev.distance} mm")
             if isinstance(ev, ScanAreaGrid):
                 self.smart_canvas.update_point_states(ev.points)
-            
-            if isinstance(ev, MinMaxResult):
-                print(f"MinMaxResult: axis={ev.axis}, min_angle={ev.min_angle}, max_angle={ev.max_angle}")
-               
-           
-                
+         
 
         # Schedule next poll
         self.after(self.SystemConfig.tick_ms, self.poll_events)
@@ -274,8 +269,11 @@ class MainWindow(ctk.CTk):
 
 
 class MotorConfigPanel(ctk.CTkToplevel):
-    def __init__(self, master, send_cmd:Callable[[Command], None], **kwargs):
+    def __init__(self, master, tick , send_cmd:Callable[[Command], None], event_q: "queue.Queue[Event]"  , **kwargs):
         super().__init__(master, **kwargs)
+
+        self.Event_q = event_q
+        self.tick_t = tick
 
         self.app = master
         self.send_cmd = send_cmd
@@ -286,13 +284,15 @@ class MotorConfigPanel(ctk.CTkToplevel):
         # Layout
         self.grid_columnconfigure(0, weight=1)
 
-        panelX = AngleStatusPanel(self, command=self.send_cmd, Axis="x")
-        print(AngleStatusPanel, type(AngleStatusPanel))
+        self.panelX = AngleStatusPanel(self, command=self.send_cmd, Axis="x")
+        self.panelX.grid(row=0, column=0, padx=12, pady=12, sticky="ew")
 
-        panelX.grid(row=0, column=0, padx=12, pady=12, sticky="ew")
+        self.panelY = AngleStatusPanel(self, command=self.send_cmd, Axis="y")
+        self.panelY.grid(row=1, column=0, padx=12, pady=12, sticky="ew")
 
-        panelY = AngleStatusPanel(self, command=self.send_cmd, Axis="y")
-        panelY.grid(row=1, column=0, padx=12, pady=12, sticky="ew")
+
+        self.after(self.tick_t , self.poll_events)
+
 
         # Close handler
         self.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -300,6 +300,27 @@ class MotorConfigPanel(ctk.CTkToplevel):
         # Optional: keep on top of the main window
         self.transient(master)
         self.grab_set()
+    def poll_events(self):
+        while True:
+            try:
+                ev = self.Event_q.get_nowait()
+            except queue.Empty:
+                break
+
+            if isinstance(ev, MinMaxResult):
+                print(f"MinMaxResult: x={ev.x}, y={ev.y}, distant={ev.distant}")
+                if ev.axis == "x":
+                   self.panelX.set_maximum_angle(ev.max_angle)
+                   self.panelX.set_minimum_angle(ev.min_angle)
+                   self.panelX.set_range_cm(ev.distant)
+                   self.panelX.set_status(ev.status)
+                if ev.axis == "y":
+                    self.app.s_range.update_range(ev.distant)
+
+
+        
+
+
 
     def on_close(self):
         print("Closing MotorConfigPanel")

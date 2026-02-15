@@ -66,6 +66,10 @@ class MinMaxResult:
     axis : Axis
     min_angle : float
     max_angle : float
+    distant : float
+    status : Literal["Idle", "Scanning", "Error" ,"Done" , "in progress"]
+    
+
 
 
 @dataclass(frozen=True, slots=True)

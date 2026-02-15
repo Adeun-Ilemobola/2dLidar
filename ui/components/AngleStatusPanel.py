@@ -210,7 +210,7 @@ class AngleStatusPanel(ctk.CTkFrame):
         """Convenience setter for maximum angle."""
         self.maximum_angle_var.set(float(value))
 
-    def set_status(self, value:Literal["Idle", "Scanning", "Error"]) -> None:
+    def set_status(self, value:Literal["Idle", "Scanning", "Error"  , "Done" , "in progress"]) -> None:
         """Convenience setter for status text."""
         self.status_var.set(str(value))
 

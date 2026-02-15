@@ -156,38 +156,44 @@ class System:
                     self.test_MinMax = "stop"
                     self.cycle_count = 0
                     self.event_Queue.put(Log(f"Min-Max test completed for axis {self.test_axis}."))
-                    if self.test_axis == "x":
-                        self.event_Queue.put(MinMaxResult(
-                            axis="x",
-                            min_angle=self.min_max_X[0],
-                            max_angle=self.min_max_X[1]
-                        ))
-                    elif self.test_axis == "y":
-                        self.event_Queue.put(MinMaxResult(
-                            axis="y",
-                            min_angle=self.min_max_Y[0],
-                            max_angle=self.min_max_Y[1]
-                        ))
+                    self.event_Queue.put(MinMaxResult(max_angle=self.min_max_X[1], min_angle=self.min_max_X[0], distant=self.rangeMax, axis=self.test_axis, status="Done"))
+                    # rest all
+
+                    self.min_max_X = [-1.0, -1.0]
+                    self.rangeMax = 400
+                    self.rangeMin = 7.1
+
+                    self.min_max_Y = [-1.0, -1.0]
+                    self.rangeMax = 400
+                    self.rangeMin = 7.1
+
+
                     return
                 Direction = -1
             elif (current_angle >= 0.0):
                 Direction = 1
                
             rang = self.continuous_mode()
-            if rang is not None:
-                if  self.test_axis == "x":
-                    if rang > 7.0: # ignore extremely small numbers
+            if rang is not None: 
+                if rang > 7.0: # ignore extremely small numbers
+                    if  self.test_axis == "x":
                         if rang > self.rangeMax:
                             self.rangeMax = rang
                             self.min_max_X[1] = current_angle
                         if rang < self.rangeMin:
                             self.rangeMin = rang
                             self.min_max_X[0] = current_angle
-                    pass
-                elif self.test_axis == "y":
-                   pass
+                    if  self.test_axis == "y":
+                        if rang > self.rangeMax:
+                            self.rangeMax = rang
+                            self.min_max_Y[1] = current_angle
+                        if rang < self.rangeMin:
+                            self.rangeMin = rang
+                            self.min_max_Y[0] = current_angle
+               
 
                 m.set_angle(current_angle + self.step_size * Direction)
+                self.event_Queue.put(MinMaxResult(max_angle=self.min_max_X[1], min_angle=self.min_max_X[0], distant=self.rangeMax, axis=self.test_axis, status="in progress"))
                 self.publish_motor(self.test_axis)
     def scan_mode(self):
 
