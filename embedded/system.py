@@ -190,7 +190,19 @@ class System:
                         if rang < self.rangeMin:
                             self.rangeMin = rang
                             self.min_max_Y[0] = current_angle
-               
+            else:
+                self.test_MinMax = "stop"
+                self.event_Queue.put(Log(f"Min-Max test VALIDATION FAILED for axis {self.test_axis}."))
+                self.event_Queue.put(MinMaxResult(max_angle=self.min_max_X[1], min_angle=self.min_max_X[0], distant=self.rangeMax, axis=self.test_axis, status="Error"))
+                # rest all
+
+                self.min_max_X = [-1.0, -1.0]
+                self.rangeMax = 400
+                self.rangeMin = 7.1
+
+                self.min_max_Y = [-1.0, -1.0]
+                self.rangeMax = 400
+                self.rangeMin = 7.1
 
                 m.set_angle(current_angle + self.step_size * Direction)
                 self.event_Queue.put(MinMaxResult(max_angle=self.min_max_X[1], min_angle=self.min_max_X[0], distant=self.rangeMax, axis=self.test_axis, status="in progress"))
