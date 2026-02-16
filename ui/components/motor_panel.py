@@ -4,7 +4,7 @@ from shared.protocol import Axis, SetMotorAngle, SetMotorOffset, EnableMotor
 from decimal import Decimal, getcontext
 
 class MotorPanel(ctk.CTkFrame):
-    def __init__(self, parent, axis: Axis, send_cmd, *, width=360, height=160  , range_min_max: tuple[float, float] ):
+    def __init__(self, parent, axis: Axis, send_cmd, *, width=360, height=160  , range_min_max: tuple[float, float] , offset_min_max: tuple[float, float] | None = None):
         super().__init__(parent, width=width, height=height)
         self.axis = axis
         self.send_cmd = send_cmd  # function: (Command) -> None
@@ -13,6 +13,7 @@ class MotorPanel(ctk.CTkFrame):
         self.angle = 0.0
         self.offset_deg = 0.0
         self.max_min = range_min_max
+        self.offset_max_min = offset_min_max
 
         # --- UI state vars ---
         self.offset_mode_var = ctk.BooleanVar(value=False)
@@ -63,6 +64,10 @@ class MotorPanel(ctk.CTkFrame):
         value = self.read_float(self.entry.get(), default=0.0)
 
         if self.offset_mode_var.get():
+            if (value <= self.offset_max_min[0] ) or (value >= self.offset_max_min[1]):
+                self.send_cmd(SetMotorOffset(self.axis, self.offset_deg))
+                self.update_angle_label()
+                return
             self.offset_deg = value
             self.slider.set(self.offset_deg)
             self.send_cmd(SetMotorOffset(self.axis, self.offset_deg))
@@ -124,7 +129,11 @@ class MotorPanel(ctk.CTkFrame):
             return
         if self.offset_mode_var.get():
             # it's true do something
-            self.slider.configure(from_=0, to=180)
+            if self.offset_max_min is not None:
+                self.slider.configure(from_=self.offset_max_min[1], to=self.offset_max_min[0])
+            else:
+                self.slider.configure(from_=0, to=180)
+                
             self.slider.set(self.offset_deg)
             self.entry.delete(0, ctk.END)
             self.entry.insert(0, str(self.offset_deg))

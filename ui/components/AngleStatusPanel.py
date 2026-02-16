@@ -3,7 +3,7 @@ import tkinter as tk
 import customtkinter as ctk
 from typing import Callable, Literal
 
-from shared.protocol import Command, findMinMax
+from shared.protocol import Command, findMinMax , Axis
 
 
 class AngleStatusPanel(ctk.CTkFrame):
@@ -26,8 +26,8 @@ class AngleStatusPanel(ctk.CTkFrame):
     def __init__(
         self,
         master,
-        command: Callable[[Command], None],
-        Axis: Literal["x", "y"],
+        command: Callable[[Axis , Literal["stop", "start"]], None],
+        Axis: Axis,
         **kwargs,
     ):
         super().__init__(master, **kwargs)
@@ -35,6 +35,8 @@ class AngleStatusPanel(ctk.CTkFrame):
         # --- Colors (tweak these to taste) ---
         self._panel_bg = "#BDBDBD"     # grey bar background
         self._status_bg = "#4F4F4F"    # dark box background
+
+        self.mode: Literal["stop", "start"] = "stop"
 
         # Outer appearance
         self.configure(fg_color=self._panel_bg, corner_radius=12)
@@ -54,18 +56,8 @@ class AngleStatusPanel(ctk.CTkFrame):
         self.grid_rowconfigure(0, weight=1)
 
         # Build UI
-        self._build_left_section()
-        self._build_status_section()
 
-        # Keep range label updated whenever range_var changes
-        self.range_var.trace_add("write", self._on_range_var_changed)
-        self._refresh_range_label()
-
-    # -------------------------
-    # UI BUILDERS
-    # -------------------------
-    def _build_left_section(self) -> None:
-        """Creates the Min / Max display area."""
+        #  \\---------build left  section-----------\\
         left = ctk.CTkFrame(self, fg_color="transparent")
         left.grid(row=0, column=0, sticky="nsew", padx=18, pady=14)
 
@@ -129,8 +121,9 @@ class AngleStatusPanel(ctk.CTkFrame):
         )
         self._max_value.grid(row=1, column=0, sticky="w")
 
-    def _build_status_section(self) -> None:
-        """Creates the right-side dark status box."""
+
+
+        #  \\---------build status  section-----------\\ 
         box = ctk.CTkFrame(self, fg_color=self._status_bg, corner_radius=10)
         box.grid(row=0, column=1, sticky="nsew", padx=(0, 18), pady=14)
 
@@ -179,8 +172,14 @@ class AngleStatusPanel(ctk.CTkFrame):
             text_color="white",
             font=ctk.CTkFont(size=18, weight="normal"),
         )
-        self.status_value.grid(row=2, column=0, sticky="n", padx=14, pady=(55, 0))
+        self.status_value.grid(row=2, column=0, sticky="n", padx=14, pady=(55, 0))       
 
+        # Keep range label updated whenever range_var changes
+        self.range_var.trace_add("write", self._on_range_var_changed)
+        self._refresh_range_label()
+
+  
+   
     # -------------------------
     # VAR UPDATES / HELPERS
     # -------------------------
@@ -205,28 +204,37 @@ class AngleStatusPanel(ctk.CTkFrame):
     def set_minimum_angle(self, value: float) -> None:
         """Convenience setter for minimum angle."""
         self.minimum_angle_var.set(float(value))
+        self._min_value.configure(textvariable=self.minimum_angle_var)  
+        
 
     def set_maximum_angle(self, value: float) -> None:
         """Convenience setter for maximum angle."""
         self.maximum_angle_var.set(float(value))
+        self._max_value.configure(textvariable=self.maximum_angle_var)
 
     def set_status(self, value:Literal["Idle", "Scanning", "Error"  , "Done" , "in progress"]) -> None:
         """Convenience setter for status text."""
         self.status_var.set(str(value))
+        self.status_value.configure(textvariable=self.status_var)
 
     def set_range_cm(self, value: float) -> None:
         """Convenience setter for range in centimeters."""
         self.range_var.set(float(value))
+        self._refresh_range_label()
+    def dis(self , state:Literal['disabled', 'normal']) -> None:
+      
+        self.start_test_button.configure(state=state)
+        self.start_test_button.configure(fg_color="#1f6aa5" if state == "normal" else "#D21010")
 
-    # -------------------------
-    # EMPTY CALLBACKS (you fill these)
-    # -------------------------
+  
     def on_start_test_clicked(self) -> None:
-        """
-        Called when the 'start test' button is clicked.
-        Put your logic here (or override this method).
-        """
-        self.command(findMinMax(action="start", axis=self.Axis))  # example: tell main window to disable scan controls when test starts
-        pass
+        if self.mode == "start":
+            self.mode = "stop"
+            self.start_test_button.configure(text="stop test ")
+        else:
+            self.mode = "start"
+            self.start_test_button.configure(text="start test")
+        self.command(self.Axis , self.mode)  
+        
 
    

@@ -18,7 +18,7 @@ from shared.protocol import (
     Command, Event, Log,
     EnableMotor, MinMaxResult, ScanAreaGrid, SetMotorAngle, SetMotorOffset,
     StartScan, StopScan,
-    MotorState, ScanProgress , PointState, continuous_mode, getRange , callRange , setStepSize
+    MotorState, ScanProgress , PointState, continuous_mode, getRange , callRange , setStepSize ,findMinMax
 )
 
 
@@ -70,7 +70,7 @@ class System:
         self.min_max_X = [-1.0, -1.0]
         self.min_max_Y = [-1.0, -1.0]
         self.rangeMax = 400
-        self.rangeMin = 7.1
+        self.rangeMin = 2.3
         self.test_MinMax = "stop" # "start" or "stop"
         self.test_axis = "x" # "x" or "y"
         self.max_cycle = 5
@@ -86,8 +86,10 @@ class System:
         self.motors["y"].enable(True)
         
         # # Center the motors
-        self.motors["x"].set_angle(self.scan_range_x[0])
-        self.motors["y"].set_angle(self.scan_range_y[1])
+        self.motors["x"].set_angle(0)
+        self.motors["y"].set_angle(0)
+        self.motors["x"].set_offset(0)
+        self.motors["y"].set_offset(0)
         self.publish_motor("x")
         self.publish_motor("y")
        
@@ -102,6 +104,7 @@ class System:
         self.find_min_max_mode()
 
         if self.is_continuous_mode: 
+             print("-------continuous mode-------")
              if (not self.lidar.collecting) and (self.lidar.readyMm is None):
                     self.lidar.request()
                     return
@@ -116,6 +119,7 @@ class System:
 
 
         if  self.is_scanning:
+            print("------scan mode-----")
             if self.timer_av == False:
                 self.timer_av = True
                 self.event_Queue.put(ScanProgress(current=0, total=self.scanRangeMas.avg_scan_time, start =True))
@@ -125,6 +129,7 @@ class System:
             return
 
         if self.getRamge:
+            print("------get range----")
            
             if not self.lidar.collecting and self.lidar.readyMm is None:
                 self.lidar.request()
@@ -148,15 +153,17 @@ class System:
     def find_min_max_mode(self):
         if self.test_MinMax == "start":
             m = self.motors[self.test_axis]
-            current_angle = m.get_angle()
+            current_angle = m.get_offset()
+           
             Direction = 1 
-            if (current_angle >= 180.0):
+            rang = self.continuous_mode()
+            if (current_angle >= 77):
                 self.cycle_count += 1
                 if self.cycle_count >= self.max_cycle:
                     self.test_MinMax = "stop"
                     self.cycle_count = 0
                     self.event_Queue.put(Log(f"Min-Max test completed for axis {self.test_axis}."))
-                    self.event_Queue.put(MinMaxResult(max_angle=self.min_max_X[1], min_angle=self.min_max_X[0], distant=self.rangeMax, axis=self.test_axis, status="Done"))
+                    self.event_Queue.put(MinMaxResult(max_angle=self.min_max_X[1], min_angle=self.min_max_X[0], distant=rang if rang is not None else 0.0, axis=self.test_axis, status="Done"))
                     # rest all
                     self.min_max_X = [-1.0, -1.0]
                     self.rangeMax = 400
@@ -170,9 +177,32 @@ class System:
             elif (current_angle >= 0.0):
                 Direction = 1
                
-            rang = self.continuous_mode()
+           
+            
             if rang is not None: 
-                if rang > 2.5: # ignore extremely small numbers
+                if rang > 0.8: # ignore extremely small numbers
+                    self.event_Queue.put(Log(\
+                        
+            
+                        f"""
+                        
+                        Axis {self.test_axis}
+                        range is {rang}.
+                        ----------------------
+                        Min angle is {self.min_max_X[0] if self.test_axis == "x" else self.min_max_Y[0]}.
+                        Max angle is {self.min_max_X[1] if self.test_axis == "x" else self.min_max_Y[1]}.
+                        ----------------------
+                        max range is {self.rangeMax}
+                        min range is {self.rangeMin}
+                        ----------------------
+                        current angle is {current_angle}
+                        direction is {Direction}
+                        ----------------------
+                        max cycle is {self.max_cycle}
+                        cycle count is {self.cycle_count}
+                        ----------------------"""
+            ))
+
                     if  self.test_axis == "x":
                         if rang > self.rangeMax:
                             self.rangeMax = rang
@@ -187,22 +217,10 @@ class System:
                         if rang < self.rangeMin:
                             self.rangeMin = rang
                             self.min_max_Y[0] = current_angle
-                m.set_angle(current_angle + self.step_size * Direction)
-                self.event_Queue.put(MinMaxResult(max_angle=self.min_max_X[1], min_angle=self.min_max_X[0], distant=self.rangeMax, axis=self.test_axis, status="in progress"))
+                m.set_offset(current_angle + self.step_size * Direction)
+                self.event_Queue.put(MinMaxResult(max_angle=self.min_max_X[1], min_angle=self.min_max_X[0], distant=rang if rang is not None else 0.0, axis=self.test_axis, status="in progress"))
                 self.publish_motor(self.test_axis)
-            else:
-                self.test_MinMax = "stop"
-                self.event_Queue.put(Log(f"Min-Max test VALIDATION FAILED for axis {self.test_axis}."))
-                self.event_Queue.put(MinMaxResult(max_angle=self.min_max_X[1], min_angle=self.min_max_X[0], distant=self.rangeMax, axis=self.test_axis, status="Error"))
-                # rest all
-
-                self.min_max_X = [-1.0, -1.0]
-                self.rangeMax = 400
-                self.rangeMin = 7.1
-
-                self.min_max_Y = [-1.0, -1.0]
-                self.rangeMax = 400
-                self.rangeMin = 7.1
+           
 
                
     def scan_mode(self):
@@ -331,6 +349,15 @@ class System:
             self.is_continuous_mode = cmd.continuous_mode
             mode_str = "enabled" if self.is_continuous_mode else "disabled"
             self.event_Queue.put(Log(f"Continuous mode {mode_str}."))
+        elif isinstance(cmd, findMinMax):
+            if cmd.action == "start":
+                self.test_MinMax = "start"
+                self.test_axis = cmd.axis
+                self.event_Queue.put(Log("Find Min Max started."))
+            elif cmd.action == "stop":
+                self.test_MinMax = "stop"
+                self.test_axis = cmd.axis
+                self.event_Queue.put(Log("Find Min Max stopped."))
         else:
             self.event_Queue.put(Log(f"Unknown command: {cmd!r}"))
 

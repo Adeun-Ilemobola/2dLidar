@@ -1,6 +1,8 @@
 """Main application window. Ui/main_window.py """
 # import queue
 from collections.abc import Callable
+from typing import  Literal
+
 from curses.panel import panel
 import random
 import queue
@@ -89,10 +91,10 @@ class MainWindow(ctk.CTk):
         self.step_entry.grid(row=0, column=0, sticky="ew", padx=8, pady=8)
 
         # motors BELOW (row 1)
-        self.motorX = MotorPanel(self.top_row, axis="x", send_cmd=self.send_cmd , range_min_max = self.scanRangeMas.range_X_max)
+        self.motorX = MotorPanel(self.top_row, axis="x", send_cmd=self.send_cmd , range_min_max = self.scanRangeMas.range_X_max )
         self.motorX.grid(row=1, column=0, sticky="nsew", padx=8, pady=(4, 8))
 
-        self.motorY = MotorPanel(self.top_row, axis="y", send_cmd=self.send_cmd , range_min_max = self.scanRangeMas.range_Y_Max)
+        self.motorY = MotorPanel(self.top_row, axis="y", send_cmd=self.send_cmd , range_min_max = self.scanRangeMas.range_Y_Max , offset_min_max=self.scanRangeMas.Y_Min_Max)
         self.motorY.grid(row=1, column=1, sticky="nsew", padx=8, pady=(4, 8))
 
    
@@ -202,7 +204,7 @@ class MainWindow(ctk.CTk):
              self._motor_config_win.focus()
              return
 
-         self._motor_config_win = MotorConfigPanel(self, tick=self.SystemConfig.tick_ms , event_q=self.event_q , send_cmd=self.send_cmd)
+         self._motor_config_win = MotorConfigPanel(self, send_cmd=self.send_cmd)
          self._motor_config_win.focus()
 
     def poll_events(self):
@@ -251,6 +253,9 @@ class MainWindow(ctk.CTk):
                 print(f"Range distance: {ev.distance} mm")
             if isinstance(ev, ScanAreaGrid):
                 self.smart_canvas.update_point_states(ev.points)
+            if isinstance(ev, MinMaxResult):
+                if self._motor_config_win:
+                    self._motor_config_win.Update(ev)
          
 
         # Schedule next poll
@@ -269,58 +274,51 @@ class MainWindow(ctk.CTk):
 
 
 class MotorConfigPanel(ctk.CTkToplevel):
-    def __init__(self, master, tick , send_cmd:Callable[[Command], None], event_q: "queue.Queue[Event]"  , **kwargs):
+    def __init__(self, master,  send_cmd:Callable[[Command], None] , **kwargs):
         super().__init__(master, **kwargs)
 
-        self.Event_q = event_q
-        self.tick_t = tick
+       
 
         self.app = master
         self.send_cmd = send_cmd
 
         self.title("Motor Configuration")
-        self.geometry("470x420")
+        self.geometry("850x450")
 
         # Layout
         self.grid_columnconfigure(0, weight=1)
 
-        self.panelX = AngleStatusPanel(self, command=self.send_cmd, Axis="x")
+        self.panelX = AngleStatusPanel(self, command=self.sendMode, Axis="x")
         self.panelX.grid(row=0, column=0, padx=12, pady=12, sticky="ew")
 
-        self.panelY = AngleStatusPanel(self, command=self.send_cmd, Axis="y")
+        self.panelY = AngleStatusPanel(self, command=self.sendMode, Axis="y")
         self.panelY.grid(row=1, column=0, padx=12, pady=12, sticky="ew")
-
-
-        self.after(self.tick_t , self.poll_events)
-
-
         # Close handler
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
         # Optional: keep on top of the main window
         self.transient(master)
         self.grab_set()
-    def poll_events(self):
-        while True:
-            try:
-                ev = self.Event_q.get_nowait()
-            except queue.Empty:
-                break
-
-            if isinstance(ev, MinMaxResult):
-                print(f"MinMaxResult: x={ev.x}, y={ev.y}, distant={ev.distant}")
-                if ev.axis == "x":
-                   self.panelX.set_maximum_angle(ev.max_angle)
-                   self.panelX.set_minimum_angle(ev.min_angle)
-                   self.panelX.set_range_cm(ev.distant)
-                   self.panelX.set_status(ev.status)
-                if ev.axis == "y":
-                    self.app.s_range.update_range(ev.distant)
-
-
+    def sendMode(self, a:Literal["x", "y"] , mode:Literal["stop", "start"]):
+        self.send_cmd(findMinMax(axis=a, action=mode))
+        if a == "x":
+            self.panelY.dis("disabled" if mode == "start" else "normal")
+        if a == "y":
+            self.panelX.dis("disabled" if mode == "start" else "normal")
         
-
-
+    def Update(self , ev:MinMaxResult):
+            print(f"MinMaxResult: max_angle={ev.max_angle}, min_angle={ev.min_angle},  distant={ev.distant}")
+            if ev.axis == "x":
+                self.panelX.set_maximum_angle(ev.max_angle)
+                self.panelX.set_minimum_angle(ev.min_angle)
+                self.panelX.set_range_cm(ev.distant)
+                self.panelX.set_status(ev.status)
+            if ev.axis == "y":
+                self.panelY.set_maximum_angle(ev.max_angle)
+                self.panelY.set_minimum_angle(ev.min_angle)
+                self.panelY.set_range_cm(ev.distant)
+                self.panelY.set_status(ev.status)
+            
 
     def on_close(self):
         print("Closing MotorConfigPanel")
