@@ -89,7 +89,7 @@ class System:
         self.motors["x"].set_angle(0)
         self.motors["y"].set_angle(0)
         self.motors["x"].set_offset(0)
-        self.motors["y"].set_offset(0)
+        self.motors["y"].set_offset(self.scanRangeMas.Y_Min_Max[0])
         self.publish_motor("x")
         self.publish_motor("y")
        
@@ -157,7 +157,9 @@ class System:
            
             Direction = 1 
             rang = self.continuous_mode()
-            if (current_angle >= 77):
+            clip_angle_max = 77  if self.test_axis == "x" else self.scanRangeMas.Y_Min_Max[1]
+            clip_angle_Min = 0  if self.test_axis == "x" else self.scanRangeMas.Y_Min_Max[0]
+            if (current_angle >= clip_angle_max):
                 self.cycle_count += 1
                 if self.cycle_count >= self.max_cycle:
                     self.test_MinMax = "stop"
@@ -166,24 +168,26 @@ class System:
                     self.event_Queue.put(MinMaxResult(max_angle=self.min_max_X[1], min_angle=self.min_max_X[0], distant=rang if rang is not None else 0.0, axis=self.test_axis, status="Done"))
                     # rest all
                     self.min_max_X = [-1.0, -1.0]
-                    self.rangeMax = 400
-                    self.rangeMin = 7.1
-
                     self.min_max_Y = [-1.0, -1.0]
                     self.rangeMax = 400
-                    self.rangeMin = 7.1
+                    self.rangeMin = 1.50
+                    # rest the offset motor This offset does not have valid mechanics. This is visually delivered as seen close enough to the center.
+
+                    xOffset =  79
+                    yOffset = 124.1
+                    m.set_offset(xOffset if self.test_axis == "x" else yOffset)
+                    
                     return
                 Direction = -1
-            elif (current_angle >= 0.0):
+            elif (current_angle >= clip_angle_Min  ):
                 Direction = 1
                
            
             
             if rang is not None: 
                 if rang > 0.8: # ignore extremely small numbers
-                    self.event_Queue.put(Log(\
+                    self.event_Queue.put(Log(
                         
-            
                         f"""
                         
                         Axis {self.test_axis}
@@ -217,7 +221,16 @@ class System:
                         if rang < self.rangeMin:
                             self.rangeMin = rang
                             self.min_max_Y[0] = current_angle
-                m.set_offset(current_angle + self.step_size * Direction)
+                            
+                if self.test_axis == "y":
+                    new_angle = current_angle + self.step_size * Direction
+                    clap = max(self.scanRangeMas.Y_Min_Max[1], min(self.scanRangeMas.Y_Min_Max[0], new_angle))
+                    m.set_offset(clap)
+                    pass
+                else:
+                    m.set_offset(current_angle + self.step_size * Direction)
+
+                    
                 self.event_Queue.put(MinMaxResult(max_angle=self.min_max_X[1], min_angle=self.min_max_X[0], distant=rang if rang is not None else 0.0, axis=self.test_axis, status="in progress"))
                 self.publish_motor(self.test_axis)
            
