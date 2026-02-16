@@ -158,7 +158,6 @@ class System:
                     self.event_Queue.put(Log(f"Min-Max test completed for axis {self.test_axis}."))
                     self.event_Queue.put(MinMaxResult(max_angle=self.min_max_X[1], min_angle=self.min_max_X[0], distant=self.rangeMax, axis=self.test_axis, status="Done"))
                     # rest all
-
                     self.min_max_X = [-1.0, -1.0]
                     self.rangeMax = 400
                     self.rangeMin = 7.1
@@ -166,8 +165,6 @@ class System:
                     self.min_max_Y = [-1.0, -1.0]
                     self.rangeMax = 400
                     self.rangeMin = 7.1
-
-
                     return
                 Direction = -1
             elif (current_angle >= 0.0):
@@ -175,7 +172,7 @@ class System:
                
             rang = self.continuous_mode()
             if rang is not None: 
-                if rang > 7.0: # ignore extremely small numbers
+                if rang > 2.5: # ignore extremely small numbers
                     if  self.test_axis == "x":
                         if rang > self.rangeMax:
                             self.rangeMax = rang
@@ -190,6 +187,9 @@ class System:
                         if rang < self.rangeMin:
                             self.rangeMin = rang
                             self.min_max_Y[0] = current_angle
+                m.set_angle(current_angle + self.step_size * Direction)
+                self.event_Queue.put(MinMaxResult(max_angle=self.min_max_X[1], min_angle=self.min_max_X[0], distant=self.rangeMax, axis=self.test_axis, status="in progress"))
+                self.publish_motor(self.test_axis)
             else:
                 self.test_MinMax = "stop"
                 self.event_Queue.put(Log(f"Min-Max test VALIDATION FAILED for axis {self.test_axis}."))
@@ -204,9 +204,7 @@ class System:
                 self.rangeMax = 400
                 self.rangeMin = 7.1
 
-                m.set_angle(current_angle + self.step_size * Direction)
-                self.event_Queue.put(MinMaxResult(max_angle=self.min_max_X[1], min_angle=self.min_max_X[0], distant=self.rangeMax, axis=self.test_axis, status="in progress"))
-                self.publish_motor(self.test_axis)
+               
     def scan_mode(self):
 
         if self.is_scanning and not self.motors["x"].testMode and not self.motors["y"].testMode:
