@@ -223,6 +223,7 @@ class System:
                             self.min_max_Y[0] = current_angle
                             
                 if self.test_axis == "y":
+                    print(f"current angle is {current_angle} and direction is {Direction}")
                     new_angle = current_angle + self.step_size * Direction
                     clap = max(self.scanRangeMas.Y_Min_Max[1], min(self.scanRangeMas.Y_Min_Max[0], new_angle))
                     m.set_offset(clap)
