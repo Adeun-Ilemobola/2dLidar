@@ -4,24 +4,25 @@ import queue
 import threading
 from typing import Optional
 
-from shared.config import SystemConfig
+from shared.config import SystemConfig , scanRange
 from shared.protocol import Command, Event, Log
 from embedded.system import System
 
 class HardwareWorker(threading.Thread):
-    def __init__(self, cmd_q: "queue.Queue[Command]", event_q: "queue.Queue[Event]"):
+    def __init__(self, cmd_q: "queue.Queue[Command]", event_q: "queue.Queue[Event]" , scanRange_mas: scanRange , SystemConfig_mas: SystemConfig):
         super().__init__(daemon=True)
         self.cmd_q = cmd_q
         self.event_q = event_q
         self.stop_event = threading.Event()
-        self.SystemConfig = SystemConfig()
+        self.SystemConfig = SystemConfig_mas
+        self.scanRange = scanRange_mas
 
         self.system: Optional[System] = None
 
     def run(self) -> None:
         try:
             # Create ALL hardware stuff here (on the worker thread)
-            self.system = System(event_q=self.event_q)
+            self.system = System(event_q=self.event_q , scanRange_mas=self.scanRange)
 
             self.event_q.put(Log("Hardware worker started."))
 

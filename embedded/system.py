@@ -30,9 +30,9 @@ def clamp_range(min_val, val, max_val) -> float:
 
 
 class System:
-    def __init__(self, event_q: "Queue[Event]"):
+    def __init__(self, event_q: "Queue[Event]" , scanRange_mas: scanRange):
         self.event_Queue = event_q
-        self.scanRangeMas = scanRange()
+        self.scanRangeMas = scanRange_mas
 
        
 

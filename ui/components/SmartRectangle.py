@@ -1,65 +1,133 @@
-
 import customtkinter as ctk
-from typing import Optional ,Tuple
+from typing import Tuple
 from shared.protocol import PointState
 
+
 class SmartRectangle:
-    def __init__(self, canvas: ctk.CTkCanvas, state: PointState , gridIndex:Tuple[int,int] , hover , unhover  , on_select, x1, y1, x2, y2, **kwargs):
+    def __init__(
+        self,
+        canvas: ctk.CTkCanvas,
+        state: PointState,
+        gridIndex: Tuple[int, int],
+        hover,
+        unhover,
+        on_select,
+        x1, y1, x2, y2,
+        **kwargs
+    ):
         self.canvas = canvas
         self.state: PointState = state
         self.gridIndex = gridIndex
         self.on_select = on_select
+
+        # -------------------------
+        # Visual tokens (local only)
+        # -------------------------
+        self.visual = {
+            "tileBorder": "#1F2630",
+            "hoverBorder": "#00E5FF",
+            "selectedBorder": "#FF2FB3",
+            "voidFill": "#0F1115",
+            "defaultFill": "#151A21",
+        }
+
+        # Selection + hover state
+        self.is_selected = False
+        self.is_void = False
+        self.is_hovered = False
+
+        # Keep your selected color (but now we also use outlines for clarity)
+        self.color_selected = "#FF2FB3"
+
+        # Current fill color (cached for fast restore)
+        self.main_color = self.visual["defaultFill"]
+
         # Create the actual canvas item and store its ID
-        self.id = self.canvas.create_rectangle(x1, y1, x2, y2, **kwargs)
-        
-        self.canvas.tag_bind(self.id, "<Button-1>", lambda e: self.on_select(self))  # Bind click event to selection callback
+        # (Outline + width give a cleaner grid look than pure fill-only)
+        self.id = self.canvas.create_rectangle(
+            x1, y1, x2, y2,
+            fill=self.main_color,
+            outline=self.visual["tileBorder"],
+            width=1,
+            **kwargs
+        )
+
+        # Bind interactions
+        self.canvas.tag_bind(self.id, "<Button-1>", lambda e: self.on_select(self))
         self.canvas.tag_bind(self.id, "<Enter>", lambda e: hover(self.id, self.gridIndex))
         self.canvas.tag_bind(self.id, "<Leave>", lambda e: unhover(self.id, self.gridIndex))
 
-        # Custom properties
-        self.is_selected = False
-        self.is_void = False
-        # self.next_SmartRectangle: Optional["SmartRectangle"] = None  
-        # self.prev_SmartRectangle: Optional["SmartRectangle"] = None
-
-       
-        self.color_selected = "#FF2FB3"
-        self.main_color = "#1e2121"
+        # Initial color based on distance
         self.auto_color()
 
-    
-    def auto_color(self):
-        distance = self.state.distant
+    # -------------------------
+    # Layout helper
+    # -------------------------
+    def setCoords(self, x1, y1, x2, y2):
+        """UI-only: update rectangle position without recreating."""
+        self.canvas.coords(self.id, x1, y1, x2, y2)
+
+    # -------------------------
+    # Hover helper
+    # -------------------------
+    def setHover(self, hovered: bool):
+        """UI-only: hover is an outline highlight, not a full fill override."""
+        self.is_hovered = hovered
+        self.applyOutline()
+
+    def applyOutline(self):
+        """Apply outline based on hover/selection state."""
         if self.is_selected:
-            self.canvas.itemconfig(self.id, fill=self.color_selected)
-            return  # Keep selected color
-        if self.is_void:
-            self.canvas.itemconfig(self.id, fill="#1e2121")
-            self.main_color = "#1e2121"
+            self.canvas.itemconfig(self.id, outline=self.visual["selectedBorder"], width=2)
             return
-        
-        if distance >= 0 and distance < 80:
-            self.canvas.itemconfig(self.id, fill="#D64545")
-            self.main_color = "#D64545"
-        elif distance >= 80 and distance < 160:
-            self.canvas.itemconfig(self.id, fill="#E07A3F")
-            self.main_color = "#E07A3F"
-        elif distance >= 160 and distance < 240:
-            self.canvas.itemconfig(self.id, fill="#E6B566")
-            self.main_color = "#E6B566"
-        elif distance >= 240 and distance < 390:
-            self.canvas.itemconfig(self.id, fill="#6FAF8F")
-            self.main_color = "#6FAF8F"
-        elif distance >= 390 and distance < 400:
-            self.canvas.itemconfig(self.id, fill="#4C6FAE")
-            self.main_color = "#4C6FAE"
-        elif distance >= 400:
-            self.canvas.itemconfig(self.id, fill="#1e2121")
-            self.is_void = True
-            self.main_color = "#1e2121"
+        if self.is_hovered:
+            self.canvas.itemconfig(self.id, outline=self.visual["hoverBorder"], width=2)
+            return
+        self.canvas.itemconfig(self.id, outline=self.visual["tileBorder"], width=1)
+
+    # -------------------------
+    # Color logic (UI-facing)
+    # -------------------------
+    def auto_color(self):
+        """
+        UI-only color mapping for distances.
+        Keeps your thresholds but uses a cleaner palette + fixes "sticky void".
+        """
+        distance = getattr(self.state, "distant", -1)
+
+        # Fix: void should be computed fresh each time (not sticky forever)
+        invalid = distance is None or distance < 0
+        voidNow = invalid or (distance >= 400)
+
+        self.is_void = bool(voidNow)
+
+        # Selection: keep your strong highlight
+        if self.is_selected:
+            self.main_color = self.color_selected
+            self.canvas.itemconfig(self.id, fill=self.main_color)
+            self.applyOutline()
+            return
+
+        # Void: disappear into background
+        if self.is_void:
+            self.main_color = self.visual["voidFill"]
+            self.canvas.itemconfig(self.id, fill=self.main_color)
+            self.applyOutline()
+            return
+
+        # Distance palette (same ranges, cleaner tones)
+        if 0 <= distance < 80:
+            self.main_color = "#E05252"   # red
+        elif 80 <= distance < 160:
+            self.main_color = "#F08A3C"   # orange
+        elif 160 <= distance < 240:
+            self.main_color = "#F2C14E"   # amber
+        elif 240 <= distance < 390:
+            self.main_color = "#33B37E"   # green
+        elif 390 <= distance < 400:
+            self.main_color = "#3B82F6"   # blue
         else:
-            self.is_void = True
-            self.canvas.itemconfig(self.id, fill="#1e2121")  # Default color for invalid distance
-            self.main_color = "#1e2121"
-        
-    
+            self.main_color = self.visual["defaultFill"]
+
+        self.canvas.itemconfig(self.id, fill=self.main_color)
+        self.applyOutline()

@@ -1,218 +1,324 @@
-
 import tkinter as tk
 import customtkinter as ctk
 from typing import Callable, Literal
 
-from shared.protocol import Command, findMinMax , Axis
+from shared.protocol import Command, findMinMax, Axis
 
 
 class AngleStatusPanel(ctk.CTkFrame):
     """
-    A reusable "component" widget that displays:
-      - Minimum angle
-      - Maximum angle
+    UI-only redesigned panel:
+      - Min angle
+      - Max angle
       - Range (cm)
-      - Status
+      - Status + Start/Stop button
 
-    Public variables:
+    Public variables (unchanged):
       - self.minimum_angle_var (tk.IntVar)
       - self.maximum_angle_var (tk.IntVar)
       - self.status_var        (tk.StringVar)
-      - self.range_var         (tk.DoubleVar)  # interpreted as centimeters
-
-    You can set these vars directly, or use the setter methods.
+      - self.range_var         (tk.DoubleVar)
     """
 
     def __init__(
         self,
         master,
-        command: Callable[[Axis , Literal["stop", "start"]], None],
+        command: Callable[[Axis, Literal["stop", "start"]], None],
         Axis: Axis,
         **kwargs,
     ):
         super().__init__(master, **kwargs)
 
-        # --- Colors (tweak these to taste) ---
-        self._panel_bg = "#BDBDBD"     # grey bar background
-        self._status_bg = "#4F4F4F"    # dark box background
+        # =========================
+        # Component-local styling (light/dark aware)
+        # =========================
+        panelColors = {
+            # Main surface behind everything
+            "surface": ("#F2F3F5", "#14161A"),
+            # Raised card surfaces
+            "card": ("#FFFFFF", "#1C1F24"),
+            # Subtle border line
+            "border": ("#D7DADF", "#2A2F37"),
+            # Text colors
+            "text": ("#111318", "#E9EDF2"),
+            "mutedText": ("#5A6472", "#AAB3BF"),
+            # Accent for action button (keeps your existing blue vibe)
+            "accent": ("#1F6AA5", "#1F6AA5"),
+            "accentHover": ("#195A8D", "#195A8D"),
+            # Neutral button surface (for "secondary" look if you want later)
+            "buttonSurface": ("#EEF1F4", "#252A32"),
+        }
+
+        statusStyles = {
+            "Idle":        {"dot": "#8B95A3", "pill": ("#EEF1F4", "#252A32")},
+            "Scanning":    {"dot": "#2D7DFF", "pill": ("#E9F1FF", "#1E2A3A")},
+            "in progress": {"dot": "#F5A524", "pill": ("#FFF4E2", "#3A2A1B")},
+            "Done":        {"dot": "#22C55E", "pill": ("#E8FAEF", "#1D3326")},
+            "Error":       {"dot": "#EF4444", "pill": ("#FEECEC", "#3A1F1F")},
+        }
+
+        fonts = {
+            # Labels
+            "label": ctk.CTkFont(size=14, weight="normal"),
+            "labelStrong": ctk.CTkFont(size=14, weight="bold"),
+            # Big numeric values
+            "value": ctk.CTkFont(size=64, weight="bold"),
+            # Dash between values
+            "dash": ctk.CTkFont(size=48, weight="bold"),
+            # Status title/value
+            "statusTitle": ctk.CTkFont(size=18, weight="bold"),
+            "statusValue": ctk.CTkFont(size=16, weight="normal"),
+            # Range line (kept readable)
+            "range": ctk.CTkFont(size=13, weight="normal"),
+            # Button
+            "button": ctk.CTkFont(size=14, weight="bold"),
+        }
+
+        # Keep your original attributes (so nothing breaks if referenced elsewhere)
+        self._panel_bg = panelColors["surface"][0]  # legacy, not used directly
+        self._status_bg = "#4F4F4F"                 # legacy, not used directly
 
         self.mode: Literal["stop", "start"] = "stop"
 
-        # Outer appearance
-        self.configure(fg_color=self._panel_bg, corner_radius=12)
+        # Outer container appearance
+        self.configure(
+            fg_color=panelColors["surface"],
+            corner_radius=16,
+            border_width=1,
+            border_color=panelColors["border"],
+        )
 
-        # --- Public variables 
+        # =========================
+        # Public state (unchanged)
+        # =========================
         self.minimum_angle_var = tk.IntVar(value=180)
         self.maximum_angle_var = tk.IntVar(value=180)
-        self.status_var =  tk.StringVar(value="Idle")
-        self.range_var =  tk.DoubleVar(value=100.0)
+        self.status_var = tk.StringVar(value="Idle")
+        self.range_var = tk.DoubleVar(value=100.0)
+
         self.command = command
         self.Axis = Axis
 
-        # --- Layout root grid ---
-        # Left area (min/max) takes most space; right status box is fixed-ish.
-        self.grid_columnconfigure(0, weight=1)  # left
-        self.grid_columnconfigure(1, weight=0)  # right
+        # =========================
+        # Layout grid
+        # =========================
+        self.grid_columnconfigure(0, weight=1)  # left (angles)
+        self.grid_columnconfigure(1, weight=0, minsize=210)  # right (status)
         self.grid_rowconfigure(0, weight=1)
 
-        # Build UI
+        # =========================
+        # Left card: Angles
+        # =========================
+        # Angle card container
+        anglesCard = ctk.CTkFrame(
+            self,
+            fg_color=panelColors["card"],
+            corner_radius=14,
+            border_width=1,
+            border_color=panelColors["border"],
+        )
+        anglesCard.grid(row=0, column=0, sticky="nsew", padx=(14, 10), pady=14)
+        anglesCard.grid_columnconfigure(0, weight=1)
+        anglesCard.grid_rowconfigure(0, weight=1)
 
-        #  \\---------build left  section-----------\\
-        left = ctk.CTkFrame(self, fg_color="transparent")
-        left.grid(row=0, column=0, sticky="nsew", padx=18, pady=14)
+        # Inner layout for Min - Max
+        anglesRow = ctk.CTkFrame(anglesCard, fg_color="transparent")
+        anglesRow.grid(row=0, column=0, sticky="nsew", padx=16, pady=14)
+        anglesRow.grid_columnconfigure(0, weight=1)
+        anglesRow.grid_columnconfigure(1, weight=0)
+        anglesRow.grid_columnconfigure(2, weight=1)
+        anglesRow.grid_rowconfigure(0, weight=1)
 
-        # Grid: [Min block] [dash] [Max block]
-        left.grid_columnconfigure(0, weight=1)
-        left.grid_columnconfigure(1, weight=0)
-        left.grid_columnconfigure(2, weight=1)
-        left.grid_rowconfigure(0, weight=1)
-
-        # Fonts (adjust sizes if you want it even bigger)
-        label_font = ctk.CTkFont(size=28, weight="normal")
-        value_font = ctk.CTkFont(size=96, weight="bold")
-        dash_font = ctk.CTkFont(size=72, weight="bold")
-
-        # --- Min block ---
-        min_frame = ctk.CTkFrame(left, fg_color="transparent")
-        min_frame.grid(row=0, column=0, sticky="w")
+        # Min block
+        minBlock = ctk.CTkFrame(anglesRow, fg_color="transparent")
+        minBlock.grid(row=0, column=0, sticky="nsew")
+        minBlock.grid_rowconfigure(1, weight=1)
 
         self._min_label = ctk.CTkLabel(
-            min_frame,
+            minBlock,
             text="Min",
-            text_color="black",
-            font=label_font,
+            font=fonts["labelStrong"],
+            text_color=panelColors["mutedText"],
+            anchor="w",
         )
         self._min_label.grid(row=0, column=0, sticky="w")
 
         self._min_value = ctk.CTkLabel(
-            min_frame,
+            minBlock,
             textvariable=self.minimum_angle_var,
-            text_color="black",
-            font=value_font,
+            font=fonts["value"],
+            text_color=panelColors["text"],
+            anchor="w",
         )
-        self._min_value.grid(row=1, column=0, sticky="w")
+        self._min_value.grid(row=1, column=0, sticky="w", pady=(4, 0))
 
-        # --- Dash ---
+        # Dash separator
         self._dash_label = ctk.CTkLabel(
-            left,
-            text="-",
-            text_color="black",
-            font=dash_font,
+            anglesRow,
+            text="—",
+            font=fonts["dash"],
+            text_color=panelColors["border"],
         )
-        self._dash_label.grid(row=0, column=1, sticky="n", padx=18)
+        self._dash_label.grid(row=0, column=1, sticky="n", padx=18, pady=(26, 0))
 
-        # --- Max block ---
-        max_frame = ctk.CTkFrame(left, fg_color="transparent")
-        max_frame.grid(row=0, column=2, sticky="w")
+        # Max block
+        maxBlock = ctk.CTkFrame(anglesRow, fg_color="transparent")
+        maxBlock.grid(row=0, column=2, sticky="nsew")
+        maxBlock.grid_rowconfigure(1, weight=1)
 
         self._max_label = ctk.CTkLabel(
-            max_frame,
+            maxBlock,
             text="Max",
-            text_color="black",
-            font=label_font,
+            font=fonts["labelStrong"],
+            text_color=panelColors["mutedText"],
+            anchor="w",
         )
         self._max_label.grid(row=0, column=0, sticky="w")
 
         self._max_value = ctk.CTkLabel(
-            max_frame,
+            maxBlock,
             textvariable=self.maximum_angle_var,
-            text_color="black",
-            font=value_font,
+            font=fonts["value"],
+            text_color=panelColors["text"],
+            anchor="w",
         )
-        self._max_value.grid(row=1, column=0, sticky="w")
+        self._max_value.grid(row=1, column=0, sticky="w", pady=(4, 0))
 
-
-
-        #  \\---------build status  section-----------\\ 
-        box = ctk.CTkFrame(self, fg_color=self._status_bg, corner_radius=10)
-        box.grid(row=0, column=1, sticky="nsew", padx=(0, 18), pady=14)
-
-        # Make it feel like the mockup: narrow, vertically stacked
-        box.grid_columnconfigure(0, weight=1)
-        box.grid_rowconfigure(0, weight=0)  # button
-        box.grid_rowconfigure(1, weight=0)  # range
-        box.grid_rowconfigure(2, weight=1)  # status label/value area
-
-        # Button
-        self.start_test_button = ctk.CTkButton(
-            box,
-            text="start test",
-            height=32,
-            corner_radius=6,
-            fg_color="#E6E6E6",
-            text_color="black",
-            hover_color="#D8D8D8",
-            command=self.on_start_test_clicked,  
+        # =========================
+        # Right card: Status + controls
+        # =========================
+        statusCard = ctk.CTkFrame(
+            self,
+            fg_color=panelColors["card"],
+            corner_radius=14,
+            border_width=1,
+            border_color=panelColors["border"],
         )
-        self.start_test_button.grid(row=0, column=0, sticky="ew", padx=14, pady=(14, 8))
+        statusCard.grid(row=0, column=1, sticky="nsew", padx=(10, 14), pady=14)
+        statusCard.grid_columnconfigure(0, weight=1)
+        statusCard.grid_rowconfigure(3, weight=1)
 
-        # Range text (auto-formatted from range_var)
+        # Header: "Status" label
+        # (keeps the right panel feeling intentional and readable)
+        statusHeader = ctk.CTkLabel(
+            statusCard,
+            text="Status",
+            font=fonts["statusTitle"],
+            text_color=panelColors["text"],
+            anchor="w",
+        )
+        statusHeader.grid(row=0, column=0, sticky="ew", padx=14, pady=(14, 6))
+
+        # Status pill (dot + status text)
+        # This improves glanceability vs big stacked labels.
+        statusPill = ctk.CTkFrame(
+            statusCard,
+            fg_color=statusStyles.get(self.status_var.get(), statusStyles["Idle"])["pill"],
+            corner_radius=999,
+            border_width=1,
+            border_color=panelColors["border"],
+        )
+        statusPill.grid(row=1, column=0, sticky="ew", padx=14, pady=(0, 10))
+        statusPill.grid_columnconfigure(1, weight=1)
+
+        statusDot = ctk.CTkLabel(
+            statusPill,
+            text="●",
+            font=ctk.CTkFont(size=14, weight="bold"),
+            text_color=statusStyles.get(self.status_var.get(), statusStyles["Idle"])["dot"],
+        )
+        statusDot.grid(row=0, column=0, padx=(12, 8), pady=8, sticky="w")
+
+        self.status_value = ctk.CTkLabel(
+            statusPill,
+            textvariable=self.status_var,
+            font=fonts["statusValue"],
+            text_color=panelColors["text"],
+            anchor="w",
+        )
+        self.status_value.grid(row=0, column=1, padx=(0, 12), pady=8, sticky="ew")
+
+        # Range line
         self._range_label_var = tk.StringVar(value="Ranging: 0 cm")
         self.range_label = ctk.CTkLabel(
-            box,
+            statusCard,
             textvariable=self._range_label_var,
-            text_color="white",
-            font=ctk.CTkFont(size=16, weight="normal"),
+            font=fonts["range"],
+            text_color=panelColors["mutedText"],
+            anchor="w",
         )
-        self.range_label.grid(row=1, column=0, sticky="w", padx=14, pady=(0, 10))
+        self.range_label.grid(row=2, column=0, sticky="ew", padx=14, pady=(0, 12))
 
-        # Status title
-        self.status_title = ctk.CTkLabel(
-            box,
-            text="Status",
+        # Action button
+        # Keeps your command + mode logic the same, but improves visuals.
+        self.start_test_button = ctk.CTkButton(
+            statusCard,
+            text="start test",
+            height=40,
+            corner_radius=10,
+            font=fonts["button"],
+            fg_color=panelColors["accent"],
+            hover_color=panelColors["accentHover"],
             text_color="white",
-            font=ctk.CTkFont(size=32, weight="bold"),
+            command=self.on_start_test_clicked,
         )
-        self.status_title.grid(row=2, column=0, sticky="n", padx=14, pady=(10, 0))
+        self.start_test_button.grid(row=4, column=0, sticky="ew", padx=14, pady=(0, 14))
 
-        # Optional: actual status value (you can hide/remove if you want)
-        self.status_value = ctk.CTkLabel(
-            box,
-            textvariable=self.status_var,
-            text_color="white",
-            font=ctk.CTkFont(size=18, weight="normal"),
-        )
-        self.status_value.grid(row=2, column=0, sticky="n", padx=14, pady=(55, 0))       
-
-        # Keep range label updated whenever range_var changes
+        # =========================
+        # Variable tracing (UI refresh only)
+        # =========================
         self.range_var.trace_add("write", self._on_range_var_changed)
-        self._refresh_range_label()
+        self.status_var.trace_add("write", lambda *_: self.updateStatusVisuals(statusPill, statusDot, statusStyles, panelColors))
 
-  
-   
+        self._refresh_range_label()
+        self.updateStatusVisuals(statusPill, statusDot, statusStyles, panelColors)
+
     # -------------------------
-    # VAR UPDATES / HELPERS
+    # UI refresh helpers
+    # -------------------------
+    def updateStatusVisuals(self, statusPill, statusDot, statusStyles, panelColors) -> None:
+        """Update the status pill color + dot color based on status_var."""
+        current = str(self.status_var.get())
+        style = statusStyles.get(current, statusStyles["Idle"])
+
+        statusPill.configure(
+            fg_color=style["pill"],
+            border_color=panelColors["border"],
+        )
+        statusDot.configure(text_color=style["dot"])
+
+    # -------------------------
+    # VAR UPDATES / HELPERS 
     # -------------------------
     def _on_range_var_changed(self, *_args) -> None:
         """Triggered whenever range_var changes."""
         self._refresh_range_label()
 
     def _refresh_range_label(self) -> None:
-        """Formats the range label as: 'Ranging:XXX cm'."""
+        """Formats the range label as: 'Ranging: XXX cm'."""
         try:
             value = float(self.range_var.get())
-            # Keep it clean: if it's basically an integer, show no decimals
             if abs(value - int(value)) < 1e-9:
-                self._range_label_var.set(f"Ranging:{int(value)} cm")
+                self._range_label_var.set(f"Ranging: {int(value)} cm")
             else:
-                self._range_label_var.set(f"Ranging:{value:.1f} cm")
+                self._range_label_var.set(f"Ranging: {value:.1f} cm")
         except Exception:
-            # If range_var becomes invalid, don't crash the UI
             self._range_label_var.set("Ranging: ? cm")
 
-    
+    # -------------------------
+    # Public setters 
+    # -------------------------
     def set_minimum_angle(self, value: float) -> None:
         """Convenience setter for minimum angle."""
         self.minimum_angle_var.set(float(value))
-        self._min_value.configure(textvariable=self.minimum_angle_var)  
-        
+        self._min_value.configure(textvariable=self.minimum_angle_var)
 
     def set_maximum_angle(self, value: float) -> None:
         """Convenience setter for maximum angle."""
         self.maximum_angle_var.set(float(value))
         self._max_value.configure(textvariable=self.maximum_angle_var)
 
-    def set_status(self, value:Literal["Idle", "Scanning", "Error"  , "Done" , "in progress"]) -> None:
+    def set_status(self, value: Literal["Idle", "Scanning", "Error", "Done", "in progress"]) -> None:
         """Convenience setter for status text."""
         self.status_var.set(str(value))
         self.status_value.configure(textvariable=self.status_var)
@@ -221,12 +327,18 @@ class AngleStatusPanel(ctk.CTkFrame):
         """Convenience setter for range in centimeters."""
         self.range_var.set(float(value))
         self._refresh_range_label()
-    def dis(self , state:Literal['disabled', 'normal']) -> None:
-      
-        self.start_test_button.configure(state=state)
-        self.start_test_button.configure(fg_color="#1f6aa5" if state == "normal" else "#D21010")
 
-  
+    def dis(self, state: Literal["disabled", "normal"]) -> None:
+        self.start_test_button.configure(state=state)
+        self.start_test_button.configure(
+            fg_color="#1f6aa5" if state == "normal" else "#D21010",
+            hover_color="#195A8D" if state == "normal" else "#B10D0D",
+            text_color="white",
+        )
+
+    # -------------------------
+    # Button behavior 
+    # -------------------------
     def on_start_test_clicked(self) -> None:
         if self.mode == "start":
             self.mode = "stop"
@@ -234,7 +346,4 @@ class AngleStatusPanel(ctk.CTkFrame):
         else:
             self.mode = "start"
             self.start_test_button.configure(text="start test")
-        self.command(self.Axis , self.mode)  
-        
-
-   
+        self.command(self.Axis, self.mode)
