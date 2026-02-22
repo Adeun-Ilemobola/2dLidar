@@ -67,13 +67,10 @@ class System:
         self.timer_av = False
 
         #  axis test mode, mini marks
+        self.rangeMax = float("-inf")
+        self.rangeMin = float("inf")
         self.min_max_X_angle = [-1.0, -1.0]
         self.min_max_Y_angle = [-1.0, -1.0]
-        self.rangeMax = 19
-        self.rangeMin = 16
-        self.test_MinMax = "stop" # "start" or "stop"
-        self.test_axis = "x" # "x" or "y"
-        self.max_cycle = 5
         self.cycle_count = 0
         self.test_direction = 1
 
@@ -157,107 +154,117 @@ class System:
         return get_distand
         
     def find_min_max_mode(self):
-        if self.test_MinMax == "start":
-            m = self.motors[self.test_axis]
-            current_angle = m.get_offset()
-           
-            rang = self.continuous_mode()
+        if self.test_MinMax != "start":
+            return
 
-            Axis_Min_Max = self.min_max_Y_angle if self.test_axis == "y" else self.min_max_X_angle
+        m = self.motors[self.test_axis]
+        current_angle = m.get_offset()
+        rang = self.continuous_mode()
 
-            clip_angle_max = 77  if self.test_axis == "x" else self.scanRangeMas.Y_Min_Max[1]
-            clip_angle_Min = 0  if self.test_axis == "x" else self.scanRangeMas.Y_Min_Max[0]
+        axis_min_max = self.min_max_Y_angle if self.test_axis == "y" else self.min_max_X_angle
 
-            if (current_angle >= clip_angle_max):
-                self.test_direction = -1
-                self.cycle_count += 1
-                if self.cycle_count >= self.max_cycle:
-                    self.test_MinMax = "stop"
-                    self.cycle_count = 0
-                    self.event_Queue.put(Log(f"Min-Max test completed for axis {self.test_axis}."))
-                    self.event_Queue.put(MinMaxResult(
-                    max_angle=Axis_Min_Max[1] , 
-                    min_angle=Axis_Min_Max[0], 
-                    distant=rang if rang is not None else 0.0, 
-                    axis=self.test_axis, 
-                    status="Done"
-                    ))
-                    # rest all
-                    self.min_max_X_angle = [-1.0, -1.0]
-                    self.min_max_Y_angle = [-1.0, -1.0]
-                    self.rangeMax = 400
-                    self.rangeMin = 1.50
-                    # rest the offset motor This offset does not have valid mechanics. This is visually delivered as seen close enough to the center.
+        clip_angle_max = 77 if self.test_axis == "x" else self.scanRangeMas.Y_Min_Max[1]
+        clip_angle_min = 0 if self.test_axis == "x" else self.scanRangeMas.Y_Min_Max[0]
 
-                    xOffset =  79
-                    yOffset = 124.1
-                    m.set_offset(xOffset if self.test_axis == "x" else yOffset)
-                    
-                    return
-            elif (current_angle <= clip_angle_Min  ):
-                self.cycle_count += 1
-                self.test_direction = 1
-               
-           
-            is_valid_now = rang > 16.0 # there should be enough to prevent the rangefinder to ignore the enclosure space anything last than this it's useless
-            if rang is not None and is_valid_now: 
-               
-                self.event_Queue.put(Log(
-                        
-                        f"""
-                        
-                        Axis {self.test_axis}
-                        range is {rang if rang is not None else 0}.
-                        ----------------------
-                        Min angle is {Axis_Min_Max[0]}.
-                        Max angle is {Axis_Min_Max[1]}.
-                        ----------------------
-                        max range is {self.rangeMax}
-                        min range is {self.rangeMin}
-                        ----------------------
-                        current angle is {current_angle}
-                        direction is {self.test_direction}
-                        ----------------------
-                        max cycle is {self.max_cycle}
-                        cycle count is {self.cycle_count}
-                        ----------------------
-                        """
+    # Safe validity check
+        is_valid_now = (rang is not None) and (rang > 16.0)
+
+    # Edge handling
+        if current_angle >= clip_angle_max:
+            self.test_direction = -1
+            self.cycle_count += 1
+
+        if self.cycle_count >= self.max_cycle:
+            self.test_MinMax = "stop"
+            self.cycle_count = 0
+
+            self.event_Queue.put(Log(f"Min-Max test completed for axis {self.test_axis}."))
+            self.event_Queue.put(MinMaxResult(
+                max_angle=axis_min_max[1],
+                min_angle=axis_min_max[0],
+                distant=rang if rang is not None else 0.0,
+                axis=self.test_axis,
+                status="Done"
             ))
 
-                if  self.test_axis == "x":
-                        if rang > self.rangeMax:
-                            self.rangeMax = rang
-                            self.min_max_X_angle[1] = current_angle
-                        if rang >= self.rangeMin and rang < self.rangeMax:
-                            self.rangeMin = rang
-                            self.min_max_X_angle[0] = current_angle
-                if  self.test_axis == "y":
-                        if rang > self.rangeMax:
-                            self.rangeMax = rang
-                            self.min_max_Y_angle[1] = current_angle
-                        if rang >= self.rangeMin and rang <  self.rangeMax:
-                            self.rangeMin = rang
-                            self.min_max_Y_angle[0] = current_angle
-                            
-                if self.test_axis == "y":
-                    print(f"current angle is {current_angle} and direction is {self}")
-                    new_angle = current_angle + (1 * self.test_direction)
-                    clap = min(self.scanRangeMas.Y_Min_Max[1], max(self.scanRangeMas.Y_Min_Max[0], new_angle))
-                    m.set_offset(clap)
-                    pass
-                else:
-                    m.set_offset(current_angle + 1 * self.test_direction)
+            # Reset tracking values
+            self.min_max_X_angle = [-1.0, -1.0]
+            self.min_max_Y_angle = [-1.0, -1.0]
 
-                    
-                self.event_Queue.put(MinMaxResult(
-                    max_angle=Axis_Min_Max[1], 
-                    min_angle=Axis_Min_Max[0], 
-                    distant=rang if rang is not None else 0.0, 
-                    axis=self.test_axis, 
-                    status="in progress"
-                    ))
-                self.publish_motor(self.test_axis)
-           
+            # Normal mode defaults (make sure your test-start code reinitializes these!)
+            self.rangeMax = 400
+            self.rangeMin = 1.50
+
+            # Reset offsets to visual center-ish
+            xOffset = 79
+            yOffset = 124.1
+            m.set_offset(xOffset if self.test_axis == "x" else yOffset)
+            return
+
+        elif current_angle <= clip_angle_min:
+            self.test_direction = 1
+            self.cycle_count += 1
+
+    # Only update min/max if the reading is valid
+        if is_valid_now:
+            self.event_Queue.put(Log(
+            f"""
+    Axis {self.test_axis}
+    range is {rang}.
+    ----------------------
+    Min angle is {axis_min_max[0]}.
+    Max angle is {axis_min_max[1]}.
+    ----------------------
+    max range is {self.rangeMax}
+    min range is {self.rangeMin}
+    ----------------------
+    current angle is {current_angle}
+    direction is {self.test_direction}
+    ----------------------
+    max cycle is {self.max_cycle}
+    cycle count is {self.cycle_count}
+    ----------------------
+    """
+            ))
+
+        if self.test_axis == "x":
+            if rang > self.rangeMax:
+                self.rangeMax = rang
+                self.min_max_X_angle[1] = current_angle
+
+            # Track smallest VALID range
+            if rang < self.rangeMin:
+                self.rangeMin = rang
+                self.min_max_X_angle[0] = current_angle
+
+        else:  # y axis
+            if rang > self.rangeMax:
+                self.rangeMax = rang
+                self.min_max_Y_angle[1] = current_angle
+
+            # Track smallest VALID range
+            if rang < self.rangeMin:
+                self.rangeMin = rang
+                self.min_max_Y_angle[0] = current_angle
+
+        self.event_Queue.put(MinMaxResult(
+            max_angle=axis_min_max[1],
+            min_angle=axis_min_max[0],
+            distant=rang,
+            axis=self.test_axis,
+            status="in progress"
+        ))
+
+    # ALWAYS move motor (even when reading is invalid)
+        next_angle = current_angle + (1 * self.test_direction)
+
+        if self.test_axis == "y":
+            next_angle = min(self.scanRangeMas.Y_Min_Max[1], max(self.scanRangeMas.Y_Min_Max[0], next_angle))
+        else:
+            next_angle = min(77, max(0, next_angle))
+
+        m.set_offset(next_angle)
+        self.publish_motor(self.test_axis) 
 
                
     def scan_mode(self):

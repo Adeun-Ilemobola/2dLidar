@@ -1,11 +1,11 @@
-"""Main application window. Ui/main_window.py"""
+"""Main application window. ui/main_window.py"""
 from collections.abc import Callable
 from typing import Literal
 import queue
 import customtkinter as ctk
 import tkinter as tk
 
-# from embedded.worker import HardwareWorker
+from embedded.worker import HardwareWorker
 from shared.config import SystemConfig, scanRange
 from shared.protocol import (
     MinMaxResult,
@@ -29,27 +29,33 @@ from ui.components.SmartCanvas import SmartCanvas
 
 
 class MainWindow(ctk.CTk):
-    def __init__(self, title="Pi Control Panel", size=(1000, 900)):
+    def __init__(self, title: str = "Pi Control Panel", size=(1000, 900)):
         super().__init__()
         self.title(title)
         self.geometry(f"{size[0]}x{size[1]}")
 
         # Queues
-        self.cmd_q: "queue.Queue" = queue.Queue()
+        self.cmd_q: "queue.Queue[Command]" = queue.Queue()
         self.event_q: "queue.Queue" = queue.Queue()
+
         self.SystemConfig = SystemConfig()
         self.scanRangeMas = scanRange()
 
         # Worker thread
-        # self.worker = HardwareWorker(self.cmd_q, self.event_q , scanRange_mas=self.scanRangeMas , SystemConfig_mas=self.SystemConfig)
-        # self.worker.start()
+        self.worker = HardwareWorker(
+            self.cmd_q,
+            self.event_q,
+            scanRange_mas=self.scanRangeMas,
+            SystemConfig_mas=self.SystemConfig
+        )
+        self.worker.start()
 
         # State
         self.scan_progress = False
-        self.scanRangeMas = scanRange()
+        self._motor_config_win: "MotorConfigPanel | None" = None
 
         # -------------------------
-        # UI theme 
+        # UI theme
         # -------------------------
         self.uiColors = {
             "surface": ("#F2F3F5", "#0F1115"),
@@ -78,10 +84,10 @@ class MainWindow(ctk.CTk):
 
         self.root_frame.grid_columnconfigure(0, weight=3)  # motors
         self.root_frame.grid_columnconfigure(1, weight=1)  # scan buttons
-        self.root_frame.grid_columnconfigure(2, weight=2)  # range (a bit wider)
+        self.root_frame.grid_columnconfigure(2, weight=2)  # range panel
 
         # ============================================================
-        # TOP LEFT CARD: Motors 
+        # TOP LEFT CARD: Motors
         # ============================================================
         self.motorCard = ctk.CTkFrame(
             self.root_frame,
@@ -95,7 +101,6 @@ class MainWindow(ctk.CTk):
         self.motorCard.grid_columnconfigure(1, weight=1)
         self.motorCard.grid_rowconfigure(0, weight=0)
 
-        # Motor panels inside the card (side-by-side)
         self.motorX = MotorPanel(
             self.motorCard,
             axis="x",
@@ -114,7 +119,7 @@ class MainWindow(ctk.CTk):
         self.motorY.grid(row=0, column=1, sticky="ew", padx=10, pady=10)
 
         # ============================================================
-        # TOP MIDDLE CARD: Scan controls 
+        # TOP MIDDLE CARD: Scan controls
         # ============================================================
         self.scanCard = ctk.CTkFrame(
             self.root_frame,
@@ -126,17 +131,17 @@ class MainWindow(ctk.CTk):
         self.scanCard.grid(row=0, column=1, sticky="ew", padx=8, pady=8)
         self.scanCard.grid_columnconfigure(0, weight=1)
 
-       
         self.scan_toggle = ctk.CTkButton(
             self.scanCard,
-            text="Start scan",
+            text="Start Scan",
             height=40,
             corner_radius=12,
-            command=self.run_scam,
+            command=self.run_scan,
         )
+
         self.reset_toggle = ctk.CTkButton(
             self.scanCard,
-            text="Rest",
+            text="Reset",
             height=40,
             corner_radius=12,
             command=self.reset,
@@ -146,7 +151,7 @@ class MainWindow(ctk.CTk):
         self.reset_toggle.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 12))
 
         # ============================================================
-        # TOP RIGHT CARD: Range sensor 
+        # TOP RIGHT CARD: Range sensor
         # ============================================================
         self.rangeCard = ctk.CTkFrame(
             self.root_frame,
@@ -162,12 +167,9 @@ class MainWindow(ctk.CTk):
         self.s_range.grid(row=0, column=0, sticky="ew", padx=12, pady=12)
 
         # ============================================================
-        # BOTTOM: Smart Canvas 
+        # BOTTOM: Smart Canvas
         # ============================================================
-        dummy_point_states = [
-            [PointState(x=j, y=i, distant=-1) for j in range(40)]
-            for i in range(40)
-        ]
+        dummy_point_states = [[PointState(x=j, y=i, distant=-1) for j in range(40)] for i in range(40)]
 
         self.smart_canvas = SmartCanvas(
             self.root_frame,
@@ -178,16 +180,32 @@ class MainWindow(ctk.CTk):
         )
         self.smart_canvas.grid(row=1, column=0, columnspan=3, sticky="nsew", padx=8, pady=8)
 
-        self._motor_config_win = None
-
         # Start polling events
         self.after(self.SystemConfig.tick_ms, self.poll_events)
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
     # -------------------------
-    # Commands (logic unchanged)
+    # UI state helpers
     # -------------------------
-    def run_scam(self):
+    def enable_widget(self, on: bool) -> None:
+        state = "normal" if on else "disabled"
+        self.motorX.setDisable(state)
+        self.motorY.setDisable(state)
+        self.s_range.setDisable(state)
+
+    def set_scan_controls_enabled(self, enabled: bool) -> None:
+        state = "normal" if enabled else "disabled"
+        self.scan_toggle.configure(state=state, fg_color="#1f6aa5" if enabled else "#D21010")
+        self.reset_toggle.configure(state=state, fg_color="#1f6aa5" if enabled else "#D21010")
+
+    # Backwards-compatible alias (if any other code still calls this)
+    def disable_scan_controls(self, on: bool) -> None:
+        self.set_scan_controls_enabled(on)
+
+    # -------------------------
+    # Commands
+    # -------------------------
+    def run_scan(self) -> None:
         if self.scan_progress:
             self.scan_progress = False
             self.send_cmd(StopScan())
@@ -202,42 +220,44 @@ class MainWindow(ctk.CTk):
     def reset(self) -> None:
         self.scan_progress = False
         self.send_cmd(StopScan())
+        self.scan_toggle.configure(text="Start Scan")
+        self.enable_widget(True)
 
-    def enable_widget(self, on: bool):
-        state = "normal" if on else "disabled"
-        self.motorX.setDisable(state)
-        self.motorY.setDisable(state)
-        self.s_range.setDisable(state)
-        # step_entry removed → do not call it
-
-    def disable_scan_controls(self, on: bool):
-        state = "normal" if on else "disabled"
-        self.scan_toggle.configure(state=state, fg_color="#1f6aa5" if on else "#D21010")
-        self.reset_toggle.configure(state=state, fg_color="#1f6aa5" if on else "#D21010")
-
-    def send_cmd(self, cmd: Command):
+    def send_cmd(self, cmd: Command) -> None:
+        # Continuous mode disables scan/reset while active
         if isinstance(cmd, continuous_mode):
-            self.disable_scan_controls(not cmd.continuous_mode)
+            self.set_scan_controls_enabled(not cmd.continuous_mode)
+
+        # Min/Max mode should disable scan/reset and manual motor/range controls
         if isinstance(cmd, findMinMax) and cmd.action == "start":
-            self.disable_scan_controls(True)
+            self.set_scan_controls_enabled(False)
             self.enable_widget(False)
+
         if isinstance(cmd, findMinMax) and cmd.action == "stop":
-            self.disable_scan_controls(False)
+            self.set_scan_controls_enabled(True)
             self.enable_widget(True)
 
         self.cmd_q.put(cmd)
 
-    def open_motor_config(self):
+    def open_motor_config(self) -> None:
         print("Opening motor config window...")
-        if self._motor_config_win and self._motor_config_win.winfo_exists():
-            print("Motor config window already open, focusing...")
-            self._motor_config_win.focus()
-            return
+
+        if self._motor_config_win is not None:
+            try:
+                if self._motor_config_win.winfo_exists():
+                    print("Motor config window already open, focusing...")
+                    self._motor_config_win.deiconify()
+                    self._motor_config_win.lift()
+                    self._motor_config_win.focus()
+                    return
+            except Exception:
+                self._motor_config_win = None
 
         self._motor_config_win = MotorConfigPanel(self, send_cmd=self.send_cmd)
+        self._motor_config_win.lift()
         self._motor_config_win.focus()
 
-    def poll_events(self):
+    def poll_events(self) -> None:
         while True:
             try:
                 ev = self.event_q.get_nowait()
@@ -258,46 +278,55 @@ class MainWindow(ctk.CTk):
                         enabled=ev.enabled,
                     )
 
-            if isinstance(ev, Log):
+            elif isinstance(ev, Log):
                 print(ev.message)
 
-            if isinstance(ev, ScanProgress):
+            elif isinstance(ev, ScanProgress):
+                self.scan_progress = ev.start
                 if ev.start:
                     self.enable_widget(False)
+                    self.scan_toggle.configure(text="Stop Scan")
                 else:
                     self.enable_widget(True)
                     self.scan_toggle.configure(text="Start Scan")
 
-            if isinstance(ev, getRange):
+            elif isinstance(ev, getRange):
                 self.s_range.update_range(ev.distance)
 
-            if isinstance(ev, ScanAreaGrid):
+            elif isinstance(ev, ScanAreaGrid):
                 self.smart_canvas.update_point_states(ev.points)
 
-            if isinstance(ev, MinMaxResult):
-                if self._motor_config_win:
-                    self._motor_config_win.Update(ev)
+            elif isinstance(ev, MinMaxResult):
+                # Auto-restore UI when backend reports completion
+                if str(ev.status).lower() == "done":
+                    self.set_scan_controls_enabled(True)
+                    self.enable_widget(True)
+
+                if self._motor_config_win is not None:
+                    try:
+                        if self._motor_config_win.winfo_exists():
+                            self._motor_config_win.Update(ev)
+                        else:
+                            self._motor_config_win = None
+                    except Exception:
+                        self._motor_config_win = None
 
         self.after(self.SystemConfig.tick_ms, self.poll_events)
 
-    def on_close(self):
+    def on_close(self) -> None:
         try:
-            # self.worker.shutdown()
+            self.worker.shutdown()
             pass
         except Exception:
             pass
         self.destroy()
 
 
-
-
-
-
 # ============================================================
-# Motor Configuration Window (RESTORED)
+# Motor Configuration Window
 # ============================================================
 class MotorConfigPanel(ctk.CTkToplevel):
-    def __init__(self, master, send_cmd: Callable[[Command], None], **kwargs):
+    def __init__(self, master: MainWindow, send_cmd: Callable[[Command], None], **kwargs):
         super().__init__(master, **kwargs)
 
         self.app = master
@@ -318,30 +347,42 @@ class MotorConfigPanel(ctk.CTkToplevel):
         # Close handler
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
-        # Keep on top of the main window
+        # Keep on top of the main window / modal-ish
         self.transient(master)
         self.grab_set()
 
-    def sendMode(self, a: Literal["x", "y"], mode: Literal["stop", "start"]):
+    def sendMode(self, a: Literal["x", "y"], mode: Literal["stop", "start"]) -> None:
         self.send_cmd(findMinMax(axis=a, action=mode))
+
+        # Prevent both axes from running Min/Max at the same time from UI
         if a == "x":
             self.panelY.dis("disabled" if mode == "start" else "normal")
-        if a == "y":
+        elif a == "y":
             self.panelX.dis("disabled" if mode == "start" else "normal")
 
-    def Update(self, ev: MinMaxResult):
-        print(f"MinMaxResult: max_angle={ev.max_angle}, min_angle={ev.min_angle}, distant={ev.distant}")
+    def Update(self, ev: MinMaxResult) -> None:
+        print(
+            f"MinMaxResult: max_angle={ev.max_angle}, "
+            f"min_angle={ev.min_angle}, distant={ev.distant}, status={ev.status}"
+        )
+
         if ev.axis == "x":
             self.panelX.set_maximum_angle(ev.max_angle)
             self.panelX.set_minimum_angle(ev.min_angle)
             self.panelX.set_range_cm(ev.distant)
             self.panelX.set_status(ev.status)
-        if ev.axis == "y":
+
+        elif ev.axis == "y":
             self.panelY.set_maximum_angle(ev.max_angle)
             self.panelY.set_minimum_angle(ev.min_angle)
             self.panelY.set_range_cm(ev.distant)
             self.panelY.set_status(ev.status)
 
-    def on_close(self):
+        if str(ev.status).lower() == "done":
+            self.panelX.dis("normal")
+            self.panelY.dis("normal")
+
+    def on_close(self) -> None:
         print("Closing MotorConfigPanel")
+        self.app._motor_config_win = None
         self.destroy()
