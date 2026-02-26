@@ -107,7 +107,7 @@ class PointState:
 
 @dataclass(frozen=True, slots=True)
 class ScanAreaGrid:
-    points: List[List[PointState]]
+    points: List[PointState]
 
 @dataclass(frozen=True, slots=True)
 class getRange:

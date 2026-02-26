@@ -41,7 +41,7 @@ class MainWindow(ctk.CTk):
         self.SystemConfig = SystemConfig()
         self.scanRangeMas = scanRange()
 
-        # Worker thread
+        # # Worker thread
         self.worker = HardwareWorker(
             self.cmd_q,
             self.event_q,
@@ -294,7 +294,7 @@ class MainWindow(ctk.CTk):
                 self.s_range.update_range(ev.distance)
 
             elif isinstance(ev, ScanAreaGrid):
-                self.smart_canvas.update_point_states(ev.points)
+                self.smart_canvas.Update_point_grid(ev.points)
 
             elif isinstance(ev, MinMaxResult):
                 # Auto-restore UI when backend reports completion

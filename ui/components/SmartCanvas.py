@@ -24,12 +24,17 @@ class SmartCanvas(CTkCanvas):
         self.point_1: SmartRectangle | None = None
         self.point_2: SmartRectangle | None = None
 
+
+        self.grid_cols = 0
+        self.grid_rows = 0
+
         # --- Visual tokens (local only) ---
         self.canvasColors = {
             "background": "#0F1115",   # main canvas background
             "gridPadding": 10,         # space around grid
             "cellGap": 3,              # gap between cells
         }
+        
 
         # Canvas appearance (clean, no default Tk highlight border)
         self.configure(
@@ -38,15 +43,15 @@ class SmartCanvas(CTkCanvas):
             bd=0,
         )
 
+        self.MAX_ANGLE = 99.0
+        self.ANGLE_STEP = 1.5
         # Used to debounce resize handling
         self.resizeJob = None
-
         # Build rectangles once (positions get updated on first resize/layout)
+        self.recompute_grid_dims()
         self.create_smart_rectangles()
-
         # Keep layout responsive when the canvas resizes
         self.bind("<Configure>", self.onCanvasResize)
-
     # -------------------------
     # Layout and rendering
     # -------------------------
@@ -64,11 +69,6 @@ class SmartCanvas(CTkCanvas):
         if not self.smart_rectangles:
             return
 
-        rows = len(self.smart_rectangles)
-        cols = len(self.smart_rectangles[0]) if rows else 0
-        if cols == 0:
-            return
-
         # Use current displayed size (fallback to requested size if not ready)
         canvasWidth = self.winfo_width() if self.winfo_width() > 5 else self.winfo_reqwidth()
         canvasHeight = self.winfo_height() if self.winfo_height() > 5 else self.winfo_reqheight()
@@ -79,14 +79,14 @@ class SmartCanvas(CTkCanvas):
         usableW = max(1, canvasWidth - (pad * 2))
         usableH = max(1, canvasHeight - (pad * 2))
 
-        cellW = usableW / cols
-        cellH = usableH / rows
+        cellW = usableW / self.grid_cols
+        cellH = usableH / self.grid_rows
 
         # Place each rect with a consistent gap “inset”
         inset = gap / 2
 
-        for i in range(rows):
-            for j in range(cols):
+        for i in range(self.grid_rows):
+            for j in range(self.grid_cols):
                 rect = self.smart_rectangles[i][j]
 
                 x1 = pad + (j * cellW) + inset
@@ -101,24 +101,20 @@ class SmartCanvas(CTkCanvas):
         if not self.point_states:
             return
 
-        rows = len(self.point_states)
-        cols = len(self.point_states[0]) if rows > 0 else 0
-        if cols == 0:
-            return
-
         self.smart_rectangles.clear()
 
-        for i in range(rows):
+        for y in range(self.grid_rows):
             row_rectangles: List[SmartRectangle] = []
-            for j in range(cols):
-                state = self.point_states[i][j]
-                gridIndex = (i, j)
+            for x in range(self.grid_cols):
+            
+                state = PointState(x, y, -1)
+              
 
                 # Create with placeholder coords; layoutRectangles will set final positions
                 smart_rect = SmartRectangle(
                     self,
                     state,
-                    gridIndex=gridIndex,
+                    gridIndex=(x, y),
                     hover=self.Hover,
                     unhover=self.Unhover,
                     on_select=self.on_select_point,
@@ -134,6 +130,16 @@ class SmartCanvas(CTkCanvas):
     # -------------------------
     # Public update helpers
     # -------------------------
+    def recompute_grid_dims(self):
+        steps = int(round(self.MAX_ANGLE / self.ANGLE_STEP))
+        self.grid_cols = steps + 1
+        self.grid_rows = steps + 1
+    def angle_to_index(self, angle: float, max_index: int) -> int:
+        idx = int(round(angle / self.ANGLE_STEP))
+        return max(0, min(idx, max_index))
+
+    def index_to_angle(self, idx: int) -> float:
+        return idx * self.ANGLE_STEP
     def setPoint(self, state: PointState):
         """Update a single point's distance and refresh its color."""
         rect = self.get_rectangle_by_coordinates(state.x, state.y)
@@ -141,31 +147,46 @@ class SmartCanvas(CTkCanvas):
             rect.state.distant = state.distant
             rect.auto_color()
 
-    def update_point_states(self, new_point_states: List[List[PointState]]):
-        """Replace the entire grid and rebuild rectangles."""
-        self.point_states = new_point_states
 
-        # Clear existing rectangles
-        self.delete("all")
-        self.smart_rectangles.clear()
-
-        # Reset selection pointers because old rectangle IDs are gone
-        self.point_1 = None
-        self.point_2 = None
-
-        self.create_smart_rectangles()
-
-    def Update_point_grid(self, new_point_state: List[PointState]):
+    def Update_point_grid(self, new_embedded_points: List[PointState]):
         """Batch update a list of points (your existing method name kept)."""
-        for state in new_point_state:
-            rect = self.get_rectangle_by_coordinates(state.x, state.y)
-            if rect:
-                rect.state.distant = state.distant
-                rect.auto_color()
+        for state in new_embedded_points:
+            x = self.angle_to_index(state.x , self.grid_cols - 1)
+            y = self.angle_to_index(state.y , self.grid_rows - 1)
+            rect = self.get_rectangle_by_coordinates(x, y)
+            rect.state.distant = state.distant
+            rect.auto_color()
 
     # -------------------------
-    # Selection logic (unchanged)
+    # Selection logic 
     # -------------------------
+    def get_new_scanRange(self):
+        if self.point_1 is None or self.point_2 is None:
+            return None
+        X_Min_Max = (self.index_to_angle(self.point_1.state.x), self.index_to_angle(self.point_2.state.x))
+        Y_Min_Max = (self.index_to_angle(self.point_1.state.y), self.index_to_angle(self.point_2.state.y))
+        X_Min_Max_index = (self.point_1.state.x, self.point_2.state.x)
+        Y_Min_Max_index = (self.point_1.state.y, self.point_2.state.y)
+        # for  y in range(Y_Min_Max_index[0], Y_Min_Max_index[1] ):
+        #     for x in range(X_Min_Max_index[0], X_Min_Max_index[1] ):
+        #         rect =self.get_rectangle_by_coordinates(x, y)
+        #         if rect is None:
+        #            return None
+        #         else:
+        #            rect.state.distant = 356
+        #            rect.auto_color()
+
+
+
+
+        print(
+            f""" 
+            --------------- Min-Max Scan Range Selected ---------------
+            Scan Range X: [{X_Min_Max[0]:.2f}, {X_Min_Max[1]:.2f}] 
+            Scan Range Y: [{Y_Min_Max[0]:.2f}, {Y_Min_Max[1]:.2f}] 
+            """
+        )
+        return X_Min_Max, Y_Min_Max
     def on_select_point(self, selRect: SmartRectangle):
         if (
             (self.point_1 is not None and self.point_2 is not None)
@@ -194,6 +215,9 @@ class SmartCanvas(CTkCanvas):
                 f"| [cod pos {self.point_2.state.x}, {self.point_2.state.y}] "
                 f"with distance {self.point_2.state.distant}"
             )
+
+            print("----------------------------------------------------")
+            self.get_new_scanRange()
             return
 
         # Deselect if clicked again
@@ -242,7 +266,7 @@ class SmartCanvas(CTkCanvas):
         """UI-only hover: outline highlight without destroying fill color."""
         if gridIndex is None:
             return
-        item = self.get_rectangle_by_grid_index(gridIndex)
+        item = self.get_rectangle_by_coordinates(gridIndex[0], gridIndex[1])
         if item:
             item.setHover(True)
 
@@ -250,6 +274,6 @@ class SmartCanvas(CTkCanvas):
         """UI-only unhover: restore outline + fill based on state."""
         if gridIndex is None:
             return
-        item = self.get_rectangle_by_grid_index(gridIndex)
+        item = self.get_rectangle_by_coordinates(gridIndex[0], gridIndex[1])
         if item:
             item.setHover(False)
