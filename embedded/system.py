@@ -58,6 +58,19 @@ class System:
         self.step_size = 2.0  # degrees
         self.scan_range_x = self.scanRangeMas.range_X_max
         self.scan_range_y = self.scanRangeMas.range_Y_Max
+        self.limit_scam = {
+            "X":{
+                "min": self.scanRangeMas.range_X_max[0],
+                "max": self.scanRangeMas.range_X_max[1]
+            },
+            "Y":{
+                "min": self.scanRangeMas.Y_Min_Max[0],
+                "max": self.scanRangeMas.Y_Min_Max[1]
+            }
+        }
+
+        # Scan state
+        self.Rangging =  self.continuous_mode()
 
         self.scan_x = 0.0
         self.scan_y = 0.0
@@ -101,6 +114,7 @@ class System:
     def tick(self) -> None:
         """Called repeatedly by the worker thread."""
         self.lidar.tick()
+        self.Rangging = self.continuous_mode()
 
         # Min/Max mode takes priority
         if self.test_MinMax == "start":
@@ -154,6 +168,7 @@ class System:
             return None
 
         self.lidar.reset()
+        self.lidar.request()  # Keep the pipeline going
         return get_distand
 
     def find_min_max_mode(self):
@@ -162,7 +177,7 @@ class System:
 
         m = self.motors[self.test_axis]
         current_angle = float(m.get_offset())
-        rang = self.continuous_mode()
+        rang = self.Rangging
 
         axis_min_max = self.min_max_Y_angle if self.test_axis == "y" else self.min_max_X_angle
 
@@ -278,9 +293,9 @@ cycle count is {self.cycle_count}
 
     def scan_mode(self):
         if self.is_scanning and not self.motors["x"].testMode and not self.motors["y"].testMode:
-            if (not self.lidar.collecting) and (self.lidar.readyMm is None):
-                self.lidar.request()
-                return
+            # if (not self.lidar.collecting) and (self.lidar.readyMm is None):
+            #     self.lidar.request()
+            #     return
 
             dist_val = self.lidar.take()
             if dist_val is None:
@@ -303,8 +318,8 @@ cycle count is {self.cycle_count}
             # Calculate next X
             next_x = self.scan_x + (self.step_size * self.scan_direction)
 
-            hit_right = next_x >= self.scan_range_x[1]
-            hit_left = next_x <= self.scan_range_x[0]
+            hit_right = next_x >= self.limit_scam["X"]["max"]
+            hit_left = next_x <= self.limit_scam["X"]["min"]
 
             if hit_right or hit_left:
                 # Finish the current row before moving Y
@@ -318,7 +333,7 @@ cycle count is {self.cycle_count}
                 self.scan_direction *= -1
 
                 # Clamp X to the edge
-                self.scan_x = self.scan_range_x[1] if hit_right else self.scan_range_x[0]
+                self.scan_x = self.limit_scam["X"]["max"] if hit_right else self.limit_scam["X"]["min"]
             else:
                 self.scan_x = next_x
 
@@ -332,7 +347,7 @@ cycle count is {self.cycle_count}
             )
 
             # Check Y completion (use >= to avoid float/step mismatch issues)
-            if self.scan_y >= self.scan_range_y[1]:
+            if self.scan_y >= self.limit_scam["Y"]["max"]:
                 # If final row has points (edge cases), append it
                 # if self.samples_point:
                 #     self.point_grid.append(self.samples_point)

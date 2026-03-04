@@ -5,7 +5,9 @@ import queue
 import customtkinter as ctk
 import tkinter as tk
 
-from embedded.worker import HardwareWorker
+from gpiozero import fonts
+
+# from embedded.worker import HardwareWorker
 from shared.config import SystemConfig, scanRange
 from shared.protocol import (
     MinMaxResult,
@@ -28,6 +30,21 @@ from ui.components.ramge_pane import RangePane
 from ui.components.SmartCanvas import SmartCanvas
 
 
+panelColors = {
+            "surface": ("#F2F3F5", "#14161A"),
+            "card": ("#FFFFFF", "#1C1F24"),
+            "border": ("#D7DADF", "#2A2F37"),
+            "text": ("#111318", "#E9EDF2"),
+            "mutedText": ("#5A6472", "#AAB3BF"),
+            "accent": ("#1F6AA5", "#1F6AA5"),
+            "accentHover": ("#195A8D", "#195A8D"),
+            "disabledFill": ("#E6E9EE", "#20242B"),
+            "disabledText": ("#9AA3AF", "#6B7280"),
+        }
+
+
+
+
 class MainWindow(ctk.CTk):
     def __init__(self, title: str = "Pi Control Panel", size=(1000, 900)):
         super().__init__()
@@ -42,13 +59,13 @@ class MainWindow(ctk.CTk):
         self.scanRangeMas = scanRange()
 
         # # Worker thread
-        self.worker = HardwareWorker(
-            self.cmd_q,
-            self.event_q,
-            scanRange_mas=self.scanRangeMas,
-            SystemConfig_mas=self.SystemConfig
-        )
-        self.worker.start()
+        # self.worker = HardwareWorker(
+        #     self.cmd_q,
+        #     self.event_q,
+        #     scanRange_mas=self.scanRangeMas,
+        #     SystemConfig_mas=self.SystemConfig
+        # )
+        # self.worker.start()
 
         # State
         self.scan_progress = False
@@ -62,6 +79,26 @@ class MainWindow(ctk.CTk):
             "card": ("#FFFFFF", "#171A20"),
             "border": ("#D7DADF", "#2A2F37"),
         }
+        self.panelColors = {
+            "surface": ("#F2F3F5", "#14161A"),
+            "card": ("#FFFFFF", "#1C1F24"),
+            "border": ("#D7DADF", "#2A2F37"),
+            "text": ("#111318", "#E9EDF2"),
+            "mutedText": ("#5A6472", "#AAB3BF"),
+            "accent": ("#1F6AA5", "#1F6AA5"),
+            "accentHover": ("#195A8D", "#195A8D"),
+            "disabledFill": ("#E6E9EE", "#20242B"),
+            "disabledText": ("#9AA3AF", "#6B7280"),
+        }
+
+        self.fonts = {
+            "title": ctk.CTkFont(size=16, weight="bold"),
+            "small": ctk.CTkFont(size=12, weight="normal"),
+            "metricLabel": ctk.CTkFont(size=12, weight="bold"),
+            "metricValue": ctk.CTkFont(size=18, weight="bold"),
+            "button": ctk.CTkFont(size=13, weight="bold"),
+        }
+        
 
         # Root container
         self.root_frame = ctk.CTkFrame(self, fg_color=self.uiColors["surface"])
@@ -170,6 +207,18 @@ class MainWindow(ctk.CTk):
         # BOTTOM: Smart Canvas
         # ============================================================
         dummy_point_states = [[PointState(x=j, y=i, distant=-1) for j in range(40)] for i in range(40)]
+        self.clearBtu = ctk.CTkButton(
+            self.root_frame,
+            text="Clear Canvas",
+            height=36,
+            corner_radius=10,
+            font=self.fonts["button"],
+            fg_color=self.panelColors["accent"],
+            hover_color=self.panelColors["accentHover"],
+            text_color="white",
+            command=lambda: self.smart_canvas.Update_point_grid(dummy_point_states),
+        )
+        self.clearBtu.grid(row=2, column=0, columnspan=3, sticky="ew", padx=8, pady=(0, 8))
 
         self.smart_canvas = SmartCanvas(
             self.root_frame,
@@ -315,7 +364,7 @@ class MainWindow(ctk.CTk):
 
     def on_close(self) -> None:
         try:
-            self.worker.shutdown()
+            # self.worker.shutdown()
             pass
         except Exception:
             pass

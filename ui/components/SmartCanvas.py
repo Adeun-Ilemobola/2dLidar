@@ -163,20 +163,26 @@ class SmartCanvas(CTkCanvas):
     def get_new_scanRange(self):
         if self.point_1 is None or self.point_2 is None:
             return None
-        X_Min_Max = (self.index_to_angle(self.point_1.state.x), self.index_to_angle(self.point_2.state.x))
-        Y_Min_Max = (self.index_to_angle(self.point_1.state.y), self.index_to_angle(self.point_2.state.y))
+        MotorXlimte = (self.index_to_angle(self.point_1.state.x), self.index_to_angle(self.point_2.state.x))
+        MotorYlimte = (self.index_to_angle(self.point_1.state.y), self.index_to_angle(self.point_2.state.y))
         X_Min_Max_index = (self.point_1.state.x, self.point_2.state.x)
         Y_Min_Max_index = (self.point_1.state.y, self.point_2.state.y)
-        # for  y in range(Y_Min_Max_index[0], Y_Min_Max_index[1] ):
-        #     for x in range(X_Min_Max_index[0], X_Min_Max_index[1] ):
-        #         rect =self.get_rectangle_by_coordinates(x, y)
-        #         if rect is None:
-        #            return None
-        #         else:
-        #            rect.state.distant = 356
-        #            rect.auto_color()
+        
 
+        for  y in range(min(Y_Min_Max_index), max(Y_Min_Max_index) + 1):
+            for x in range(min(X_Min_Max_index), max(X_Min_Max_index) + 1):
+                rect = self.get_rectangle_by_coordinates(x, y)
+                if rect:
+                    rect.is_selected = False
+                    rect.is_Zone = True
+                    rect.auto_color()
 
+        self.point_1.is_selected = False
+        self.point_2.is_selected = False
+        self.point_1.auto_color()
+        self.point_2.auto_color()
+        self.point_1 = None
+        self.point_2 = None
 
 
         print(

@@ -33,6 +33,7 @@ class SmartRectangle:
 
         # Selection + hover state
         self.is_selected = False
+        self.is_Zone = False
         self.is_void = False
         self.is_hovered = False
 
@@ -100,6 +101,12 @@ class SmartRectangle:
         voidNow = invalid or (distance >= 400)
 
         self.is_void = bool(voidNow)
+
+        if  self.is_Zone:
+            self.main_color = "#8B5CF6"   # purple
+            self.canvas.itemconfig(self.id, fill=self.main_color)
+            self.applyOutline()
+            return
 
         # Selection: keep your strong highlight
         if self.is_selected:
