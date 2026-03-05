@@ -142,7 +142,8 @@ class MainWindow(ctk.CTk):
             self.motorCard,
             axis="x",
             send_cmd=self.send_cmd,
-            range_min_max=self.scanRangeMas.range_X_max,
+            range_min_max=(self.scanRangeMas.Axis_X["defaultScanRange"]["min"], self.scanRangeMas.Axis_X["defaultScanRange"]["max"]),
+            offset_min_max=(self.scanRangeMas.Axis_X["uiLimit"]["min"], self.scanRangeMas.Axis_X["uiLimit"]["max"]),
         )
         self.motorX.grid(row=0, column=0, sticky="ew", padx=10, pady=10)
 
@@ -150,8 +151,8 @@ class MainWindow(ctk.CTk):
             self.motorCard,
             axis="y",
             send_cmd=self.send_cmd,
-            range_min_max=self.scanRangeMas.range_Y_Max,
-            offset_min_max=self.scanRangeMas.Y_Min_Max,
+            range_min_max=(self.scanRangeMas.Axis_Y["defaultScanRange"]["min"], self.scanRangeMas.Axis_Y["defaultScanRange"]["max"]),
+            offset_min_max=(self.scanRangeMas.Axis_Y["uiLimit"]["min"], self.scanRangeMas.Axis_Y["uiLimit"]["max"]),
         )
         self.motorY.grid(row=0, column=1, sticky="ew", padx=10, pady=10)
 
@@ -207,6 +208,16 @@ class MainWindow(ctk.CTk):
         # BOTTOM: Smart Canvas
         # ============================================================
         dummy_point_states = [[PointState(x=j, y=i, distant=-1) for j in range(40)] for i in range(40)]
+        
+        self.smart_canvas = SmartCanvas(
+            self.root_frame,
+            send_cmd=self.send_cmd,
+            width=size[0],
+            height=size[1] - 200,
+            point_states=dummy_point_states,
+            bg="White",
+        )
+        self.smart_canvas.grid(row=1, column=0, columnspan=3, sticky="nsew", padx=8, pady=8)
         self.clearBtu = ctk.CTkButton(
             self.root_frame,
             text="Clear Canvas",
@@ -216,23 +227,15 @@ class MainWindow(ctk.CTk):
             fg_color=self.panelColors["accent"],
             hover_color=self.panelColors["accentHover"],
             text_color="white",
-            command=lambda: self.smart_canvas.Update_point_grid(dummy_point_states),
+            command=self.Clear_Canvas,
         )
         self.clearBtu.grid(row=2, column=0, columnspan=3, sticky="ew", padx=8, pady=(0, 8))
-
-        self.smart_canvas = SmartCanvas(
-            self.root_frame,
-            width=size[0],
-            height=size[1] - 200,
-            point_states=dummy_point_states,
-            bg="White",
-        )
-        self.smart_canvas.grid(row=1, column=0, columnspan=3, sticky="nsew", padx=8, pady=8)
 
         # Start polling events
         self.after(self.SystemConfig.tick_ms, self.poll_events)
         self.protocol("WM_DELETE_WINDOW", self.on_close)
-
+    def Clear_Canvas(self):
+        self.smart_canvas.clear()
     # -------------------------
     # UI state helpers
     # -------------------------

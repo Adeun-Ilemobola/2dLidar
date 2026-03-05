@@ -27,6 +27,9 @@ from shared.protocol import (
     callRange,
     setStepSize,
     findMinMax,
+    ScanLimits,
+    clearZone
+
 )
 
 
@@ -86,7 +89,7 @@ class System:
         # Min/Max test mode state
         self.test_MinMax = "stop"       # "start" or "stop"
         self.test_axis = "x"            # "x" or "y"
-        self.max_cycle = 5              # edge hits (current behavior counts both ends)
+        self.max_cycle = 5              # edge hits per axis
         self.rangeMax = float("-inf")
         self.rangeMin = float("inf")
         self.min_max_X_angle = [-1.0, -1.0]  # [min_angle, max_angle]
@@ -106,6 +109,9 @@ class System:
         self.motors["y"].set_angle(0)
         self.motors["x"].set_offset(0)
         self.motors["y"].set_offset(self.scanRangeMas.Y_Min_Max[0])
+
+        # Min/Max mode starts with a fresh state, so we can call it here to set initial tracking values
+        self.find_min_max_mode()
 
         self.publish_motor("x")
         self.publish_motor("y")
@@ -490,6 +496,29 @@ cycle count is {self.cycle_count}
                 self.test_MinMax = "stop"
                 self.test_axis = cmd.axis
                 self.event_Queue.put(Log(f"Find Min Max stopped on axis {cmd.axis}."))
+        elif isinstance(cmd, ScanLimits):
+            self.limit_scam["X"]["min"] = cmd.X[0]
+            self.limit_scam["X"]["max"] = cmd.X[1]
+            self.limit_scam["Y"]["min"] = cmd.Y[0]
+            self.limit_scam["Y"]["max"] = cmd.Y[1]
 
+            self.event_Queue.put(
+                Log(
+                    f"Scan limits updated. X: [{cmd.X[0]:.2f}, {cmd.X[1]:.2f}], Y: [{cmd.Y[0]:.2f}, {cmd.Y[1]:.2f}]"
+                )
+            )
+        elif isinstance(cmd, clearZone):
+            self.limit_scam = {
+            "X":{
+                "min": self.scanRangeMas.range_X_max[0],
+                "max": self.scanRangeMas.range_X_max[1]
+            },
+            "Y":{
+                "min": self.scanRangeMas.Y_Min_Max[0],
+                "max": self.scanRangeMas.Y_Min_Max[1]
+            }
+        }
+            self.event_Queue.put(Log("Scan limits reset to default."))
+            
         else:
             self.event_Queue.put(Log(f"Unknown command: {cmd!r}"))

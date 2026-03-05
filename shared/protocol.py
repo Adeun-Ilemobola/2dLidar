@@ -56,7 +56,17 @@ class findMinMax:
     axis : Axis
     action : Literal["start", "stop"]
 
-Command = Union[EnableMotor, SetMotorAngle, SetMotorOffset, StartScan, StopScan , stopCommands , resumeCommands , callRange, setStepSize , continuous_mode , findMinMax]
+
+@dataclass(frozen=True, slots=True)
+class ScanLimits:
+   X: tuple[float, float]
+   Y: tuple[float, float]
+
+@dataclass(frozen=True, slots=True)
+class clearZone:
+   pass
+
+Command = Union[EnableMotor, SetMotorAngle, SetMotorOffset, StartScan, StopScan , stopCommands , resumeCommands , callRange, setStepSize , continuous_mode , findMinMax, ScanLimits, clearZone]
 
 # ---------- Events (embedded -> UI) ----------
 

@@ -3,18 +3,23 @@ from customtkinter import CTkCanvas
 from typing import List, Tuple, Optional
 from shared.protocol import PointState
 from ui.components.SmartRectangle import SmartRectangle
+from dataclasses import replace
+from  shared.protocol import ScanLimits
 
 
 class SmartCanvas(CTkCanvas):
     def __init__(
         self,
         parent,
+        send_cmd,
         width: int,
         height: int,
         point_states: List[List[PointState]],
         **kwargs
     ):
         super().__init__(parent, width=width, height=height, **kwargs)
+
+        self.send_cmd = send_cmd  
 
         # Grid data
         self.point_states = point_states
@@ -23,6 +28,7 @@ class SmartCanvas(CTkCanvas):
         # Selected points (kept as-is for your logic)
         self.point_1: SmartRectangle | None = None
         self.point_2: SmartRectangle | None = None
+        self.newScan = False
 
 
         self.grid_cols = 0
@@ -43,8 +49,8 @@ class SmartCanvas(CTkCanvas):
             bd=0,
         )
 
-        self.MAX_ANGLE = 99.0
-        self.ANGLE_STEP = 1.5
+        self.MAX_ANGLE = 100
+        self.ANGLE_STEP = 2
         # Used to debounce resize handling
         self.resizeJob = None
         # Build rectangles once (positions get updated on first resize/layout)
@@ -160,7 +166,7 @@ class SmartCanvas(CTkCanvas):
     # -------------------------
     # Selection logic 
     # -------------------------
-    def get_new_scanRange(self):
+    def sendNewScanRange(self):
         if self.point_1 is None or self.point_2 is None:
             return None
         MotorXlimte = (self.index_to_angle(self.point_1.state.x), self.index_to_angle(self.point_2.state.x))
@@ -177,22 +183,16 @@ class SmartCanvas(CTkCanvas):
                     rect.is_Zone = True
                     rect.auto_color()
 
-        self.point_1.is_selected = False
-        self.point_2.is_selected = False
-        self.point_1.auto_color()
-        self.point_2.auto_color()
-        self.point_1 = None
-        self.point_2 = None
-
 
         print(
             f""" 
             --------------- Min-Max Scan Range Selected ---------------
-            Scan Range X: [{X_Min_Max[0]:.2f}, {X_Min_Max[1]:.2f}] 
-            Scan Range Y: [{Y_Min_Max[0]:.2f}, {Y_Min_Max[1]:.2f}] 
+            Scan Range X: [{MotorXlimte[0]:.2f}, {MotorXlimte[1]:.2f}] 
+            Scan Range Y: [{MotorYlimte[0]:.2f}, {MotorYlimte[1]:.2f}] 
             """
         )
-        return X_Min_Max, Y_Min_Max
+        self.send_cmd(ScanLimits(X=MotorXlimte, Y=MotorYlimte))
+        return MotorXlimte, MotorYlimte
     def on_select_point(self, selRect: SmartRectangle):
         if (
             (self.point_1 is not None and self.point_2 is not None)
@@ -223,7 +223,7 @@ class SmartCanvas(CTkCanvas):
             )
 
             print("----------------------------------------------------")
-            self.get_new_scanRange()
+            self.sendNewScanRange()
             return
 
         # Deselect if clicked again
@@ -246,17 +246,19 @@ class SmartCanvas(CTkCanvas):
             self.point_2.is_selected = False
             self.point_2.auto_color()
             self.point_2 = None
-
+    def clear(self):
+        """Reset all points to default state."""
+        for row in self.smart_rectangles:
+            for rect in row:
+                rect.state = replace(rect.state, distant=-1)  # reset distance
+                rect.is_selected = False
+                rect.is_Zone = False
+                rect.auto_color()
+        self.point_1 = None
+        self.point_2 = None
     # -------------------------
     # Lookups 
     # -------------------------
-    def get_rectangle_by_grid_index(self, gridIndex: Tuple[int, int]) -> SmartRectangle | None:
-        if (
-            (gridIndex[0] >= 0 and gridIndex[0] < len(self.smart_rectangles))
-            and (gridIndex[1] >= 0 and gridIndex[1] < len(self.smart_rectangles[0]))
-        ):
-            return self.smart_rectangles[gridIndex[0]][gridIndex[1]]
-        return None
 
     def get_rectangle_by_coordinates(self, x: int, y: int) -> SmartRectangle | None:
         for row in self.smart_rectangles:

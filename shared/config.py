@@ -14,6 +14,31 @@ class scanRange:
     Y_Min_Max: tuple[float, float] = (72, 165)
     X_Min_Max: tuple[float,  float] = (-1, -1)
 
+    Axis_X = {
+        "defaultScanRange":{
+            "min": -45.0,
+            "max": 45.0
+        },
+        "startMax":23.0,
+        "uiLimit":{
+            "min": -1,
+            "max": -1
+        }
+    }
+    Axis_Y = {
+        "defaultScanRange":{
+            "min": -37.0,
+            "max": 40.0
+        },
+        "startMax":23.0,
+        "uiLimit":{
+            "min": 72,
+            "max": 165
+        }
+    }
+
+    
+
 @dataclass(frozen=True, slots=True)
 class SystemConfig:
     tick_ms: int = 15  # 20 milliseconds per tick
