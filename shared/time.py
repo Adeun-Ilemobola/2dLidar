@@ -44,4 +44,5 @@ class Timer:
                 break
 
     def done(self) -> bool:
+        self.tick()  # Ensure we update elapsed time before checking
         return (self.duration_s is not None) and (not self.running) and (self.elapsed_s >= self.duration_s)

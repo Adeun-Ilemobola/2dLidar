@@ -16,13 +16,13 @@ class scanRange:
 
     Axis_X = {
         "defaultScanRange":{
-            "min": -45.0,
-            "max": 45.0
+            "min": -55.0,
+            "max": 55.0
         },
         "startMax":23.0,
         "uiLimit":{
-            "min": -1,
-            "max": -1
+            "min": 0,
+            "max": 180
         }
     }
     Axis_Y = {

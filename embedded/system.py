@@ -31,6 +31,7 @@ from shared.protocol import (
     clearZone
 
 )
+from shared.time import Timer
 
 
 def clamp(_max, val) -> float:
@@ -47,7 +48,7 @@ class System:
         self.scanRangeMas = scanRange_mas
 
         self.motors: Dict[str, Motor] = {
-            "x": Motor(ServoConfig(channel=3)),
+            "x": Motor(ServoConfig(channel=0)),
             "y": Motor(ServoConfig(channel=15)),
         }
         self.lidar = VL53L1XSensor(VL53L1XConfig())
@@ -73,7 +74,8 @@ class System:
         }
 
         # Scan state
-        self.Rangging =  self.continuous_mode()
+        self.Rangging =  self.pump_lidar()
+        self.prev_Rangging = None
 
         self.scan_x = 0.0
         self.scan_y = 0.0
@@ -96,6 +98,9 @@ class System:
         self.min_max_Y_angle = [-1.0, -1.0]  # [min_angle, max_angle]
         self.cycle_count = 0
         self.test_direction = 1
+        
+        
+        self.disamtTime = Timer(duration_s=0.03)  # 30ms between continuous readings
 
         self.configure_all()
 
@@ -111,37 +116,24 @@ class System:
         self.motors["y"].set_offset(self.scanRangeMas.Y_Min_Max[0])
 
         # Min/Max mode starts with a fresh state, so we can call it here to set initial tracking values
-        self.find_min_max_mode()
 
         self.publish_motor("x")
         self.publish_motor("y")
         self.event_Queue.put(Log("System configured."))
 
-    def tick(self) -> None:
-        """Called repeatedly by the worker thread."""
-        self.lidar.tick()
-        self.Rangging = self.continuous_mode()
 
-        # Min/Max mode takes priority
+
+    def tick(self) -> None:
+        self.lidar.tick()
+
         if self.test_MinMax == "start":
             self.find_min_max_mode()
             return
 
-        # Continuous range mode
         if self.is_continuous_mode:
-            if (not self.lidar.collecting) and (self.lidar.readyMm is None):
-                self.lidar.request()
-                return
-
-            get_distand = self.lidar.take()
-            if get_distand is None:
-                return
-
-            self.event_Queue.put(getRange(distance=get_distand))
-            self.lidar.reset()
+            self.handle_continuous_mode()
             return
 
-        # Scan mode
         if self.is_scanning:
             if self.timer_av is False:
                 self.timer_av = True
@@ -153,37 +145,61 @@ class System:
             self.scan_mode()
             return
 
-        # One-shot range request
         if self.getRamge:
-            if not self.lidar.collecting and self.lidar.readyMm is None:
-                self.lidar.request()
+            self.one_shot_range_mode()
 
-            if not self.lidar.collecting and self.lidar.readyMm is not None:
-                self.event_Queue.put(getRange(distance=self.lidar.readyMm))
-                self.getRamge = False
-                self.event_Queue.put(Log("Range sent."))
-                self.lidar.reset()
 
-    def continuous_mode(self) -> float | None:
-        if (not self.lidar.collecting) and (self.lidar.readyMm is None):
+
+    def handle_continuous_mode(self) -> None:
+       
+        reading = self.pump_lidar()
+
+        if not self.disamtTime.running:
+            self.disamtTime.start()
+
+        if self.disamtTime.done():
+            if reading is not None:
+                if self.prev_Rangging is None or abs(reading - self.prev_Rangging) >= 0.6:
+                    self.event_Queue.put(getRange(distance=reading))
+                    self.prev_Rangging = reading
+
+            self.disamtTime.reset()
+            
+            
+            
+    def pump_lidar(self) -> float | None:
+        if not self.lidar.collecting and self.lidar.readyMm is None:
             self.lidar.request()
             return None
 
-        get_distand = self.lidar.take()
-        if get_distand is None:
+        reading = self.lidar.take()
+        if reading is None:
             return None
 
         self.lidar.reset()
-        self.lidar.request()  # Keep the pipeline going
-        return get_distand
+        self.lidar.request()
+        return reading
+    
+    
+    def one_shot_range_mode(self) -> None:
+        reading = self.pump_lidar()
+        if reading is None:
+            return
 
+        self.event_Queue.put(getRange(distance=reading))
+        self.getRamge = False
+        self.event_Queue.put(Log("Range sent."))
+        
+        
+        
+        
     def find_min_max_mode(self):
         if self.test_MinMax != "start":
             return
 
         m = self.motors[self.test_axis]
         current_angle = float(m.get_offset())
-        rang = self.Rangging
+        rang = self.pump_lidar()
 
         axis_min_max = self.min_max_Y_angle if self.test_axis == "y" else self.min_max_X_angle
 
@@ -297,13 +313,16 @@ cycle count is {self.cycle_count}
         m.set_offset(next_angle)
         self.publish_motor(self.test_axis)
 
+
+
+
+
+
     def scan_mode(self):
         if self.is_scanning and not self.motors["x"].testMode and not self.motors["y"].testMode:
-            # if (not self.lidar.collecting) and (self.lidar.readyMm is None):
-            #     self.lidar.request()
-            #     return
+           
 
-            dist_val = self.lidar.take()
+            dist_val = self.pump_lidar()
             if dist_val is None:
                 return
 
@@ -429,6 +448,11 @@ cycle count is {self.cycle_count}
             self.point_grid = []
             self.scan_start_time = None
             self.timer_av = False
+            
+            
+            self.getRamge = False
+            self.lidar.reset()
+            self.lidar.request()
 
             # Move to start position
             self.motors["x"].set_angle(self.scan_x)
@@ -464,10 +488,15 @@ cycle count is {self.cycle_count}
             self.event_Queue.put(Log(f"Step size set to {self.step_size} degrees."))
 
         elif isinstance(cmd, continuous_mode):
+            
             # Stop scan/minmax when continuous mode is enabled
             if cmd.continuous_mode:
                 self.is_scanning = False
                 self.test_MinMax = "stop"
+                self.getRamge = False
+                self.prev_Rangging = None
+                self.lidar.reset()
+                self.disamtTime.reset()
 
             self.is_continuous_mode = cmd.continuous_mode
             mode_str = "enabled" if self.is_continuous_mode else "disabled"
@@ -478,6 +507,10 @@ cycle count is {self.cycle_count}
                 # Stop other modes
                 self.is_scanning = False
                 self.is_continuous_mode = False
+                
+                self.getRamge = False
+                self.lidar.reset()
+                self.lidar.request()
 
                 self.test_MinMax = "start"
                 self.test_axis = cmd.axis

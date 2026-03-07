@@ -7,7 +7,7 @@ import tkinter as tk
 
 from gpiozero import fonts
 
-# from embedded.worker import HardwareWorker
+from embedded.worker import HardwareWorker
 from shared.config import SystemConfig, scanRange
 from shared.protocol import (
     MinMaxResult,
@@ -59,13 +59,13 @@ class MainWindow(ctk.CTk):
         self.scanRangeMas = scanRange()
 
         # # Worker thread
-        # self.worker = HardwareWorker(
-        #     self.cmd_q,
-        #     self.event_q,
-        #     scanRange_mas=self.scanRangeMas,
-        #     SystemConfig_mas=self.SystemConfig
-        # )
-        # self.worker.start()
+        self.worker = HardwareWorker(
+            self.cmd_q,
+            self.event_q,
+            scanRange_mas=self.scanRangeMas,
+            SystemConfig_mas=self.SystemConfig
+        )
+        self.worker.start()
 
         # State
         self.scan_progress = False
@@ -367,7 +367,7 @@ class MainWindow(ctk.CTk):
 
     def on_close(self) -> None:
         try:
-            # self.worker.shutdown()
+            self.worker.shutdown()
             pass
         except Exception:
             pass
