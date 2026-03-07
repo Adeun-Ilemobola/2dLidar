@@ -168,11 +168,11 @@ class System:
             
             
     def pump_lidar(self) -> float | None:
-        if not self.lidar.collecting and self.lidar.readyMm is None:
+        if not self.lidar.collecting and self.lidar.readyCm is None:
             self.lidar.request()
             return None
 
-        reading = self.lidar.take()
+        reading = self.lidar.take_cm()
         if reading is None:
             return None
 
@@ -323,11 +323,9 @@ cycle count is {self.cycle_count}
            
 
             dist_val = self.pump_lidar()
+           
             if dist_val is None:
                 return
-
-            # Keep the sensor pipeline going
-            self.lidar.request()
 
             # Current motor angles
             current_x = self.motors["x"].get_angle()
