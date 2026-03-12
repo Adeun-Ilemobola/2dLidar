@@ -98,6 +98,21 @@ class System:
         self.min_max_Y_angle = [-1.0, -1.0]  # [min_angle, max_angle]
         self.cycle_count = 0
         self.test_direction = 1
+
+        # Find max and min range tracking
+        self.calibration_mode = "stop"  # "stop" or "start"
+        self.calibration_axis = "x"     # "x" or "y"
+        self.calibration_range: Dict[str, List[PointState]] = {
+            "x":[],
+            "y":[]
+        }
+        self.Calibration_spice  ={
+            "x":[0.0, 0.0],
+            "y":[0.0, 0.0]
+        }
+    
+        self.calibration_max_cycle = 5
+        self.calibration_cycle_count = 0
         
         
         self.disamtTime = Timer(duration_s=0.03)  # 30ms between continuous readings
@@ -313,7 +328,53 @@ cycle count is {self.cycle_count}
         m.set_offset(next_angle)
         self.publish_motor(self.test_axis)
 
+    def Calibration_mode(self):
+        if self.calibration_mode != "start":
+            return
+        if self.calibration_cycle_count >= self.calibration_max_cycle:
+            self.calibration_mode = "stop"
+            self.calibration_cycle_count = 0
+            getarry = self.calibration_range[self.calibration_axis]
+            if len(getarry) == 0:
+                self.event_Queue.put(Log(f"No data collected for calibration on axis {self.calibration_axis}."))
+                return
+           
+            
+            for point_index, point in enumerate(getarry):
+                self.event_Queue.put(Log(f"Calibration data - Axis: {self.calibration_axis}, Angle: {point.x}, Distance: {point.y}"))
+                prev = getarry[point_index - 1] if point_index > 0 else None
+                next = getarry[point_index + 1] if point_index < len(getarry) - 1 else None
 
+                if prev is not None and next is not None:
+                    dif_prev = abs(point.distant - prev.distant) 
+                    dif_next = abs(next.distant - point.distant) 
+                    tol = 15.0  # distance change threshold to consider an edge
+
+                    # | _ |
+                    C = dif_prev > tol and dif_next > tol
+
+                    # _ _ |
+                    E =( dif_prev <= tol or prev.distant ==  point.distant) and dif_next > tol
+
+                    # | _ _
+                    D = (dif_next <= tol or next.distant ==  point.distant) and dif_prev > tol
+
+                    # ||_
+                    B = dif_prev > tol and dif_next <= tol
+                    
+                    # _|_
+                    A = (point.distant >  prev.distant) and (point.distant > next.distant)
+
+                    # \\\
+                    X = (dif_prev  >= tol and dif_next  >= tol)
+
+                    
+
+
+                  
+                        
+            
+            return
 
 
 
