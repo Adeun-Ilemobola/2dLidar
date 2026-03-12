@@ -106,7 +106,7 @@ class System:
             "x":[],
             "y":[]
         }
-        self.Calibration_spice  ={
+        self.Calibration_spike  ={
             "x":[0.0, 0.0],
             "y":[0.0, 0.0]
         }
@@ -327,6 +327,49 @@ cycle count is {self.cycle_count}
 
         m.set_offset(next_angle)
         self.publish_motor(self.test_axis)
+    def cal_Calibration_mode(self):
+       
+        getarry = self.calibration_range[self.calibration_axis]
+        if len(getarry) == 0:
+            self.event_Queue.put(Log(f"No data collected for calibration on axis {self.calibration_axis}."))
+            return
+        
+        tol = 50
+        start_Point = None
+        end_Point = None
+           
+            
+        for point_index, point in enumerate(getarry):
+            self.event_Queue.put(Log(f"Calibration data - Axis: {self.calibration_axis}, Angle: {point.x}, Distance: {point.y}"))
+            prev = getarry[point_index - 1] if point_index > 0 else None
+            next = getarry[point_index + 1] if point_index < len(getarry) - 1 else None
+
+            if prev is  None and next is  None:
+                    continue
+
+            dif_prev = abs(point.distant - prev.distant) 
+            dif_next = abs(next.distant - point.distant) 
+
+            is_start_spike  = dif_prev <= tol and dif_next > tol
+            is_end_spike  = dif_prev > tol and dif_next <= tol
+
+            if start_Point is None:
+                if is_start_spike:
+                    start_Point = point
+            else:
+                if is_end_spike:
+                    end_Point = point
+                    break
+
+        if start_Point is None or end_Point is None:
+            self.event_Queue.put(Log(f"Could not identify valid calibration points for axis {self.calibration_axis}."))
+            return
+        start_angle = start_Point.x if self.calibration_axis == "x" else start_Point.y
+        end_angle = end_Point.x if self.calibration_axis == "x" else end_Point.y
+        self.Calibration_spike[self.calibration_axis] = [start_angle, end_angle]
+        
+
+
 
     def Calibration_mode(self):
         if self.calibration_mode != "start":
@@ -334,47 +377,42 @@ cycle count is {self.cycle_count}
         if self.calibration_cycle_count >= self.calibration_max_cycle:
             self.calibration_mode = "stop"
             self.calibration_cycle_count = 0
-            getarry = self.calibration_range[self.calibration_axis]
-            if len(getarry) == 0:
-                self.event_Queue.put(Log(f"No data collected for calibration on axis {self.calibration_axis}."))
-                return
-           
-            
-            for point_index, point in enumerate(getarry):
-                self.event_Queue.put(Log(f"Calibration data - Axis: {self.calibration_axis}, Angle: {point.x}, Distance: {point.y}"))
-                prev = getarry[point_index - 1] if point_index > 0 else None
-                next = getarry[point_index + 1] if point_index < len(getarry) - 1 else None
+            self.cal_Calibration_mode()
+            self.event_Queue.put(Log(f"Calibration completed for axis {self.calibration_axis}. {" next is Y axis" if self.calibration_axis == "x" else "All done!"}"))
+            if self.calibration_axis == "x":
+                midpoint = (self.Calibration_spike["x"][0] + self.Calibration_spike["x"][1]) / 2
+                self.motors["x"].set_angle(midpoint)   
+                self.calibration_axis = "y"
+                self.calibration_mode = "start"
+            else:
+                self.calibration_mode = "stop"
+                self.calibration_cycle_count = 0
 
-                if prev is not None and next is not None:
-                    dif_prev = abs(point.distant - prev.distant) 
-                    dif_next = abs(next.distant - point.distant) 
-                    tol = 15.0  # distance change threshold to consider an edge
-
-                    # | _ |
-                    C = dif_prev > tol and dif_next > tol
-
-                    # _ _ |
-                    E =( dif_prev <= tol or prev.distant ==  point.distant) and dif_next > tol
-
-                    # | _ _
-                    D = (dif_next <= tol or next.distant ==  point.distant) and dif_prev > tol
-
-                    # ||_
-                    B = dif_prev > tol and dif_next <= tol
-                    
-                    # _|_
-                    A = (point.distant >  prev.distant) and (point.distant > next.distant)
-
-                    # \\\
-                    X = (dif_prev  >= tol and dif_next  >= tol)
-
-                    
-
-
-                  
-                        
-            
             return
+
+        m = self.motors[self.calibration_axis]
+        current_angle = float(m.get_offset())
+        rang = self.pump_lidar()
+
+        if rang is not None:
+            self.calibration_range[self.calibration_axis].append(PointState(
+                x=current_angle if self.calibration_axis == "x" else 0.0,
+                y=current_angle if self.calibration_axis == "y" else 0.0,
+                distant=rang
+            ))
+
+        step_deg = 1.0
+        next_angle = current_angle + step_deg
+
+        m.set_offset(next_angle)
+        self.publish_motor(self.calibration_axis)
+
+        # Check for completion
+        if next_angle >= 180.0:
+            self.calibration_cycle_count += 1
+            m.set_offset(0.0)  # Reset to start
+            self.cal_Calibration_mode()
+       
 
 
 
