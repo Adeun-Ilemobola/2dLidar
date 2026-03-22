@@ -9,6 +9,7 @@ from shared.config import scanRange
 from embedded.modules.motors import Motor, ServoConfig
 from embedded.modules.vl53l1x_sensor import VL53L1XSensor, VL53L1XConfig
 from shared.protocol import (
+    CalibrationResult,
     Command,
     Event,
     Log,
@@ -28,7 +29,8 @@ from shared.protocol import (
     setStepSize,
     findMinMax,
     ScanLimits,
-    clearZone
+    clearZone ,
+    startCalibration
 
 )
 from shared.time import Timer
@@ -141,9 +143,7 @@ class System:
     def tick(self) -> None:
         self.lidar.tick()
 
-        if self.test_MinMax == "start":
-            self.find_min_max_mode()
-            return
+        self.Calibration_mode()
 
         if self.is_continuous_mode:
             self.handle_continuous_mode()
@@ -337,8 +337,7 @@ cycle count is {self.cycle_count}
         tol = 50
         start_Point = None
         end_Point = None
-           
-            
+               
         for point_index, point in enumerate(getarry):
             self.event_Queue.put(Log(f"Calibration data - Axis: {self.calibration_axis}, Angle: {point.x}, Distance: {point.y}"))
             prev = getarry[point_index - 1] if point_index > 0 else None
@@ -378,7 +377,10 @@ cycle count is {self.cycle_count}
             self.calibration_mode = "stop"
             self.calibration_cycle_count = 0
             self.cal_Calibration_mode()
-            self.event_Queue.put(Log(f"Calibration completed for axis {self.calibration_axis}. {" next is Y axis" if self.calibration_axis == "x" else "All done!"}"))
+            msg = " next is Y axis" if self.calibration_axis == "x" else "All done!"
+            self.event_Queue.put(
+    Log(f"Calibration completed for axis {self.calibration_axis}.{msg}")
+)
             if self.calibration_axis == "x":
                 midpoint = (self.Calibration_spike["x"][0] + self.Calibration_spike["x"][1]) / 2
                 self.motors["x"].set_angle(midpoint)   
@@ -387,6 +389,10 @@ cycle count is {self.cycle_count}
             else:
                 self.calibration_mode = "stop"
                 self.calibration_cycle_count = 0
+                self.event_Queue.put(CalibrationResult(
+                    success=True,
+                    message=f"Calibration completed. X axis spike angles: {self.Calibration_spike['x']}, Y axis spike angles: {self.Calibration_spike['y']}."
+                ))
 
             return
 
@@ -516,139 +522,293 @@ cycle count is {self.cycle_count}
         self.publish_motor("y")
 
     def handle(self, cmd: Command) -> None:
-        if isinstance(cmd, EnableMotor):
-            m = self.motors[cmd.axis]
-            m.enable(cmd.enabled)
-            self.publish_motor(cmd.axis)
-
-        elif isinstance(cmd, SetMotorAngle):
-            m = self.motors[cmd.axis]
-            m.set_angle(cmd.angle_deg)
-            self.publish_motor(cmd.axis)
-
-        elif isinstance(cmd, SetMotorOffset):
-            m = self.motors[cmd.axis]
-            m.set_offset(cmd.offset_deg)
-            self.publish_motor(cmd.axis)
-
-        elif isinstance(cmd, StartScan):
-            # Stop other modes
-            self.is_continuous_mode = False
-            self.test_MinMax = "stop"
-
-            # Reset scan state
-            self.is_scanning = True
-            self.scan_x = self.scan_range_x[0]
-            self.scan_y = self.scan_range_y[0]
-            self.scan_direction = 1
-            self.samples_point = []
-            self.point_grid = []
-            self.scan_start_time = None
-            self.timer_av = False
-            
-            
-            self.getRamge = False
-            self.lidar.reset()
-            self.lidar.request()
-
-            # Move to start position
-            self.motors["x"].set_angle(self.scan_x)
-            self.motors["y"].set_angle(self.scan_y)
-            self.publish_motor("x")
-            self.publish_motor("y")
-
-            self.event_Queue.put(Log("Scan started."))
-
-        elif isinstance(cmd, StopScan):
-            self.is_scanning = False
-            self.timer_av = False
-            self.scan_start_time = None
-            self.event_Queue.put(ScanProgress(current=0, total=self.scanRangeMas.avg_scan_time, start=False))
-            self.event_Queue.put(Log("Scan stopped."))
-
-        elif isinstance(cmd, callRange):
-            self.getRamge = True
-            self.event_Queue.put(Log("Range requested."))
-
-        elif isinstance(cmd, setStepSize):
-            if (
-                cmd.step_size <= 0
-                or cmd.step_size > (self.scan_range_x[1] - self.scan_range_x[0])
-                or cmd.step_size > 5
-            ):
-                self.event_Queue.put(
-                    Log(f"Invalid step size: {cmd.step_size}. Must be positive and within scan range.")
-                )
+        match cmd:
+            case EnableMotor():
+                data = cmd
+                m = self.motors[data.axis]
+                m.enable(data.enabled)
+                self.publish_motor(data.axis)
                 return
 
-            self.step_size = cmd.step_size
-            self.event_Queue.put(Log(f"Step size set to {self.step_size} degrees."))
+            case SetMotorAngle():
+                data = cmd
+                m = self.motors[data.axis]
+                m.set_angle(data.angle_deg)
+                self.publish_motor(data.axis)
+                return
 
-        elif isinstance(cmd, continuous_mode):
+            case SetMotorOffset():
+                data = cmd
+                m = self.motors[data.axis]
+                m.set_offset(data.offset_deg)
+                self.publish_motor(data.axis)
+                return
+
+            case StartScan():
+                # Stop other modes
+                self.is_continuous_mode = False
+                self.test_MinMax = "stop"
+
+                # Reset scan state
+                self.is_scanning = True
+                self.scan_x = self.scan_range_x[0]
+                self.scan_y = self.scan_range_y[0]
+                self.scan_direction = 1
+                self.samples_point = []
+                self.point_grid = []
+                self.scan_start_time = None
+                self.timer_av = False
+
+                # Move to start position
+                self.motors["x"].set_angle(self.scan_x)
+                self.motors["y"].set_angle(self.scan_y)
+                self.publish_motor("x")
+                self.publish_motor("y")
+                return
             
-            # Stop scan/minmax when continuous mode is enabled
-            if cmd.continuous_mode:
+            case StopScan():
                 self.is_scanning = False
+                self.timer_av = False
+                self.scan_start_time = None
+                self.event_Queue.put(ScanProgress(current=0, total=self.scanRangeMas.avg_scan_time, start=False))
+                self.event_Queue.put(Log("Scan stopped."))
+                return
+            
+            case callRange():
+                self.getRamge = True
+                return
+            case setStepSize():
+                data = cmd
+                if (
+                    data.step_size <= 0
+                    or data.step_size > (self.scan_range_x[1] - self.scan_range_x[0])
+                    or data.step_size > 5
+                ):
+                    self.event_Queue.put(
+                        Log(f"Invalid step size: {data.step_size}. Must be positive and within scan range.")
+                    )
+                    return
+                self.step_size = data.step_size 
+                return
+            case continuous_mode():
+                data = cmd
+                # Stop scan/minmax when continuous mode is enabled
+                if data.continuous_mode:
+                    self.is_scanning = False
+                    self.test_MinMax = "stop"
+                    self.getRamge = False
+                    self.prev_Rangging = None
+                    self.lidar.reset()
+                    self.disamtTime.reset()
+                self.is_continuous_mode = data.continuous_mode
+                return
+            case startCalibration():
+                # reset any ongoing modes that could interfere with calibration
+                self.is_scanning = False
+                self.is_continuous_mode = False
                 self.test_MinMax = "stop"
                 self.getRamge = False
                 self.prev_Rangging = None
                 self.lidar.reset()
                 self.disamtTime.reset()
 
-            self.is_continuous_mode = cmd.continuous_mode
-            mode_str = "enabled" if self.is_continuous_mode else "disabled"
-            self.event_Queue.put(Log(f"Continuous mode {mode_str}."))
+                # reset motors to start position
+                self.motors["x"].set_angle(self.scan_range_x[0])
+                self.motors["y"].set_angle(self.scan_range_y[0])
+                self.publish_motor("x")
+                self.publish_motor("y")
 
-        elif isinstance(cmd, findMinMax):
-            if cmd.action == "start":
-                # Stop other modes
-                self.is_scanning = False
-                self.is_continuous_mode = False
-                
-                self.getRamge = False
-                self.lidar.reset()
-                self.lidar.request()
+                # reset scan state
+                self.calibration_axis = "x"
+                self.calibration_range = {"x": [], "y": []}
+                self.Calibration_spike ={
+                    "x": [0, 0 ],
+                    "y": [0, 0 ]
+                }
+                self.calibration_cycle_count = 0
 
-                self.test_MinMax = "start"
-                self.test_axis = cmd.axis
 
-                # Initialize Min/Max tracking fresh
-                self.cycle_count = 0
-                self.test_direction = 1
-                self.rangeMax = float("-inf")
-                self.rangeMin = float("inf")
-                self.min_max_X_angle = [-1.0, -1.0]
-                self.min_max_Y_angle = [-1.0, -1.0]
 
-                self.event_Queue.put(Log(f"Find Min Max started on axis {cmd.axis}."))
+                self.calibration_mode = "start"
+                self.event_Queue.put(CalibrationResult(
+                    success=True,
+                    message=f"Calibration started."
+                ))
+                return
+            case findMinMax():
+                data = cmd
+                if data.action == "start":
+                    self.test_MinMax = "start"
+                    self.getRamge = False
+                    self.prev_Rangging = None
+                    self.lidar.reset()
+                    self.disamtTime.reset()
+                elif data.action == "stop":
+                    self.test_MinMax = "stop"
+                    self.getRamge = False
+                    self.prev_Rangging = None
+                    self.lidar.reset()
+                    self.disamtTime.reset()
+                return
+            case ScanLimits():
+                data = cmd
+                self.limit_scam["X"]["min"] = data.X[0]
+                self.limit_scam["X"]["max"] = data.X[1]
+                self.limit_scam["Y"]["min"] = data.Y[0]
+                self.limit_scam["Y"]["max"] = data.Y[1]  
+                return
+            case clearZone():
+                self.limit_scam = {
+                    "X":{
+                        "min": self.scanRangeMas.range_X_max[0],
+                        "max": self.scanRangeMas.range_X_max[1]
+                    },
+                    "Y":{
+                        "min": self.scanRangeMas.range_Y_max[0],
+                        "max": self.scanRangeMas.range_Y_max[1] 
+                    }
+                }
+                return
+            case _:
+                self.event_Queue.put(Log(f"Unknown command: {cmd}"))
 
-            elif cmd.action == "stop":
-                self.test_MinMax = "stop"
-                self.test_axis = cmd.axis
-                self.event_Queue.put(Log(f"Find Min Max stopped on axis {cmd.axis}."))
-        elif isinstance(cmd, ScanLimits):
-            self.limit_scam["X"]["min"] = cmd.X[0]
-            self.limit_scam["X"]["max"] = cmd.X[1]
-            self.limit_scam["Y"]["min"] = cmd.Y[0]
-            self.limit_scam["Y"]["max"] = cmd.Y[1]
 
-            self.event_Queue.put(
-                Log(
-                    f"Scan limits updated. X: [{cmd.X[0]:.2f}, {cmd.X[1]:.2f}], Y: [{cmd.Y[0]:.2f}, {cmd.Y[1]:.2f}]"
-                )
-            )
-        elif isinstance(cmd, clearZone):
-            self.limit_scam = {
-            "X":{
-                "min": self.scanRangeMas.range_X_max[0],
-                "max": self.scanRangeMas.range_X_max[1]
-            },
-            "Y":{
-                "min": self.scanRangeMas.Y_Min_Max[0],
-                "max": self.scanRangeMas.Y_Min_Max[1]
-            }
-        }
-            self.event_Queue.put(Log("Scan limits reset to default."))
+
+
+
+        # if isinstance(cmd, EnableMotor):
+        #     m = self.motors[cmd.axis]
+        #     m.enable(cmd.enabled)
+        #     self.publish_motor(cmd.axis)
+
+        # elif isinstance(cmd, SetMotorAngle):
+        #     m = self.motors[cmd.axis]
+        #     m.set_angle(cmd.angle_deg)
+        #     self.publish_motor(cmd.axis)
+
+        # elif isinstance(cmd, SetMotorOffset):
+        #     m = self.motors[cmd.axis]
+        #     m.set_offset(cmd.offset_deg)
+        #     self.publish_motor(cmd.axis)
+
+        # elif isinstance(cmd, StartScan):
+        #     # Stop other modes
+        #     self.is_continuous_mode = False
+        #     self.test_MinMax = "stop"
+
+        #     # Reset scan state
+        #     self.is_scanning = True
+        #     self.scan_x = self.scan_range_x[0]
+        #     self.scan_y = self.scan_range_y[0]
+        #     self.scan_direction = 1
+        #     self.samples_point = []
+        #     self.point_grid = []
+        #     self.scan_start_time = None
+        #     self.timer_av = False
             
-        else:
-            self.event_Queue.put(Log(f"Unknown command: {cmd!r}"))
+            
+        #     self.getRamge = False
+        #     self.lidar.reset()
+        #     self.lidar.request()
+
+        #     # Move to start position
+        #     self.motors["x"].set_angle(self.scan_x)
+        #     self.motors["y"].set_angle(self.scan_y)
+        #     self.publish_motor("x")
+        #     self.publish_motor("y")
+
+        #     self.event_Queue.put(Log("Scan started."))
+
+        # elif isinstance(cmd, StopScan):
+        #     self.is_scanning = False
+        #     self.timer_av = False
+        #     self.scan_start_time = None
+        #     self.event_Queue.put(ScanProgress(current=0, total=self.scanRangeMas.avg_scan_time, start=False))
+        #     self.event_Queue.put(Log("Scan stopped."))
+
+        # elif isinstance(cmd, callRange):
+        #     self.getRamge = True
+        #     self.event_Queue.put(Log("Range requested."))
+
+        # elif isinstance(cmd, setStepSize):
+        #     if (
+        #         cmd.step_size <= 0
+        #         or cmd.step_size > (self.scan_range_x[1] - self.scan_range_x[0])
+        #         or cmd.step_size > 5
+        #     ):
+        #         self.event_Queue.put(
+        #             Log(f"Invalid step size: {cmd.step_size}. Must be positive and within scan range.")
+        #         )
+        #         return
+
+        #     self.step_size = cmd.step_size
+        #     self.event_Queue.put(Log(f"Step size set to {self.step_size} degrees."))
+
+        # elif isinstance(cmd, continuous_mode):
+            
+        #     # Stop scan/minmax when continuous mode is enabled
+        #     if cmd.continuous_mode:
+        #         self.is_scanning = False
+        #         self.test_MinMax = "stop"
+        #         self.getRamge = False
+        #         self.prev_Rangging = None
+        #         self.lidar.reset()
+        #         self.disamtTime.reset()
+
+        #     self.is_continuous_mode = cmd.continuous_mode
+        #     mode_str = "enabled" if self.is_continuous_mode else "disabled"
+        #     self.event_Queue.put(Log(f"Continuous mode {mode_str}."))
+
+        # elif isinstance(cmd, findMinMax):
+        #     if cmd.action == "start":
+        #         # Stop other modes
+        #         self.is_scanning = False
+        #         self.is_continuous_mode = False
+                
+        #         self.getRamge = False
+        #         self.lidar.reset()
+        #         self.lidar.request()
+
+        #         self.test_MinMax = "start"
+        #         self.test_axis = cmd.axis
+
+        #         # Initialize Min/Max tracking fresh
+        #         self.cycle_count = 0
+        #         self.test_direction = 1
+        #         self.rangeMax = float("-inf")
+        #         self.rangeMin = float("inf")
+        #         self.min_max_X_angle = [-1.0, -1.0]
+        #         self.min_max_Y_angle = [-1.0, -1.0]
+
+        #         self.event_Queue.put(Log(f"Find Min Max started on axis {cmd.axis}."))
+
+        #     elif cmd.action == "stop":
+        #         self.test_MinMax = "stop"
+        #         self.test_axis = cmd.axis
+        #         self.event_Queue.put(Log(f"Find Min Max stopped on axis {cmd.axis}."))
+        # elif isinstance(cmd, ScanLimits):
+        #     self.limit_scam["X"]["min"] = cmd.X[0]
+        #     self.limit_scam["X"]["max"] = cmd.X[1]
+        #     self.limit_scam["Y"]["min"] = cmd.Y[0]
+        #     self.limit_scam["Y"]["max"] = cmd.Y[1]
+
+        #     self.event_Queue.put(
+        #         Log(
+        #             f"Scan limits updated. X: [{cmd.X[0]:.2f}, {cmd.X[1]:.2f}], Y: [{cmd.Y[0]:.2f}, {cmd.Y[1]:.2f}]"
+        #         )
+        #     )
+        # elif isinstance(cmd, clearZone):
+        #     self.limit_scam = {
+        #     "X":{
+        #         "min": self.scanRangeMas.range_X_max[0],
+        #         "max": self.scanRangeMas.range_X_max[1]
+        #     },
+        #     "Y":{
+        #         "min": self.scanRangeMas.Y_Min_Max[0],
+        #         "max": self.scanRangeMas.Y_Min_Max[1]
+        #     }
+        # }
+        #     self.event_Queue.put(Log("Scan limits reset to default."))
+            
+        # else:
+        #     self.event_Queue.put(Log(f"Unknown command: {cmd!r}"))

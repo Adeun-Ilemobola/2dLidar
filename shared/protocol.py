@@ -66,7 +66,12 @@ class ScanLimits:
 class clearZone:
    pass
 
-Command = Union[EnableMotor, SetMotorAngle, SetMotorOffset, StartScan, StopScan , stopCommands , resumeCommands , callRange, setStepSize , continuous_mode , findMinMax, ScanLimits, clearZone]
+@dataclass(frozen=True, slots=True)
+class startCalibration:
+   pass 
+
+
+Command = Union[EnableMotor, SetMotorAngle, SetMotorOffset, StartScan, StopScan , stopCommands , resumeCommands , callRange, setStepSize , continuous_mode , findMinMax, ScanLimits, clearZone, startCalibration]
 
 # ---------- Events (embedded -> UI) ----------
 
@@ -123,7 +128,13 @@ class ScanAreaGrid:
 class getRange:
     distance : float
 
-Event = Union[MotorState, Log, ScanProgress , PointState , ScanAreaGrid , getRange , MinMaxResult]
+
+@dataclass(frozen=True, slots=True)
+class CalibrationResult:
+    success: bool
+    message: Optional[str] = None
+
+Event = Union[MotorState, Log, ScanProgress , PointState , ScanAreaGrid , getRange , MinMaxResult, CalibrationResult]
 
 
 # ---------- universal types ----------

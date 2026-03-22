@@ -1,10 +1,9 @@
-# components/SmartCanvas.py
 from customtkinter import CTkCanvas
-from typing import List, Tuple, Optional
-from shared.protocol import PointState
-from ui.components.SmartRectangle import SmartRectangle
+from typing import List
 from dataclasses import replace
-from  shared.protocol import ScanLimits
+
+from shared.protocol import PointState, ScanLimits
+from ui.components.SmartRectangle import SmartRectangle
 
 
 class SmartCanvas(CTkCanvas):
@@ -19,269 +18,280 @@ class SmartCanvas(CTkCanvas):
     ):
         super().__init__(parent, width=width, height=height, **kwargs)
 
-        self.send_cmd = send_cmd  
-
-        # Grid data
+        self.send_cmd = send_cmd
         self.point_states = point_states
-        self.smart_rectangles: List[List[SmartRectangle]] = []
 
-        # Selected points (kept as-is for your logic)
+        self.smart_rectangles: List[List[SmartRectangle]] = []
+        self.rect_map: dict[tuple[int, int], SmartRectangle] = {}
+
         self.point_1: SmartRectangle | None = None
         self.point_2: SmartRectangle | None = None
-        self.newScan = False
-
 
         self.grid_cols = 0
         self.grid_rows = 0
 
-        # --- Visual tokens (local only) ---
-        self.canvasColors = {
-            "background": "#0F1115",   # main canvas background
-            "gridPadding": 10,         # space around grid
-            "cellGap": 3,              # gap between cells
+        self.canvas_colors = {
+            "background": "#0F1115",
+            "gridPadding": 10,
+            "cellGap": 3,
         }
-        
 
-        # Canvas appearance (clean, no default Tk highlight border)
         self.configure(
-            background=self.canvasColors["background"],
+            background=self.canvas_colors["background"],
             highlightthickness=0,
             bd=0,
         )
 
         self.MAX_ANGLE = 100
         self.ANGLE_STEP = 2
-        # Used to debounce resize handling
-        self.resizeJob = None
-        # Build rectangles once (positions get updated on first resize/layout)
+        self.resize_job = None
+
         self.recompute_grid_dims()
         self.create_smart_rectangles()
-        # Keep layout responsive when the canvas resizes
-        self.bind("<Configure>", self.onCanvasResize)
-    # -------------------------
-    # Layout and rendering
-    # -------------------------
-    def onCanvasResize(self, _event=None):
-        """Debounced resize: reposition rectangles without rebuilding objects."""
-        if self.resizeJob is not None:
+        self.bind("<Configure>", self.on_canvas_resize)
+
+    # Layout -------------------------------------------------
+
+    def on_canvas_resize(self, _event=None):
+        """Debounce resize updates."""
+        if self.resize_job is not None:
             try:
-                self.after_cancel(self.resizeJob)
+                self.after_cancel(self.resize_job)
             except Exception:
                 pass
-        self.resizeJob = self.after(20, self.layoutRectangles)
 
-    def layoutRectangles(self):
-        """Recompute rectangle coordinates based on current canvas size."""
-        if not self.smart_rectangles:
+        self.resize_job = self.after(20, self.layout_rectangles)
+
+    def layout_rectangles(self):
+        """Update rectangle positions for current canvas size."""
+        if not self.smart_rectangles or self.grid_cols == 0 or self.grid_rows == 0:
             return
 
-        # Use current displayed size (fallback to requested size if not ready)
-        canvasWidth = self.winfo_width() if self.winfo_width() > 5 else self.winfo_reqwidth()
-        canvasHeight = self.winfo_height() if self.winfo_height() > 5 else self.winfo_reqheight()
+        canvas_width = self.winfo_width() if self.winfo_width() > 5 else self.winfo_reqwidth()
+        canvas_height = self.winfo_height() if self.winfo_height() > 5 else self.winfo_reqheight()
 
-        pad = self.canvasColors["gridPadding"]
-        gap = self.canvasColors["cellGap"]
+        pad = self.canvas_colors["gridPadding"]
+        gap = self.canvas_colors["cellGap"]
 
-        usableW = max(1, canvasWidth - (pad * 2))
-        usableH = max(1, canvasHeight - (pad * 2))
+        usable_width = max(1, canvas_width - (pad * 2))
+        usable_height = max(1, canvas_height - (pad * 2))
 
-        cellW = usableW / self.grid_cols
-        cellH = usableH / self.grid_rows
-
-        # Place each rect with a consistent gap “inset”
+        cell_width = usable_width / self.grid_cols
+        cell_height = usable_height / self.grid_rows
         inset = gap / 2
 
-        for i in range(self.grid_rows):
-            for j in range(self.grid_cols):
-                rect = self.smart_rectangles[i][j]
+        for y in range(self.grid_rows):
+            for x in range(self.grid_cols):
+                rect = self.smart_rectangles[y][x]
 
-                x1 = pad + (j * cellW) + inset
-                y1 = pad + (i * cellH) + inset
-                x2 = pad + ((j + 1) * cellW) - inset
-                y2 = pad + ((i + 1) * cellH) - inset
+                x1 = pad + (x * cell_width) + inset
+                y1 = pad + (y * cell_height) + inset
+                x2 = pad + ((x + 1) * cell_width) - inset
+                y2 = pad + ((y + 1) * cell_height) - inset
 
                 rect.setCoords(x1, y1, x2, y2)
 
     def create_smart_rectangles(self):
-        """Create SmartRectangle objects once; layout is handled separately."""
+        """Create grid rectangles once."""
         if not self.point_states:
             return
 
         self.smart_rectangles.clear()
+        self.rect_map.clear()
 
         for y in range(self.grid_rows):
             row_rectangles: List[SmartRectangle] = []
-            for x in range(self.grid_cols):
-            
-                state = PointState(x, y, -1)
-              
 
-                # Create with placeholder coords; layoutRectangles will set final positions
-                smart_rect = SmartRectangle(
+            for x in range(self.grid_cols):
+                state = PointState(x, y, -1)
+
+                rect = SmartRectangle(
                     self,
                     state,
                     gridIndex=(x, y),
                     hover=self.Hover,
                     unhover=self.Unhover,
                     on_select=self.on_select_point,
-                    x1=0, y1=0, x2=10, y2=10,
+                    x1=0,
+                    y1=0,
+                    x2=10,
+                    y2=10,
                 )
-                row_rectangles.append(smart_rect)
+
+                row_rectangles.append(rect)
+                self.rect_map[(x, y)] = rect
 
             self.smart_rectangles.append(row_rectangles)
 
-        # Ensure we place them correctly once the widget is realized
-        self.after_idle(self.layoutRectangles)
+        self.after_idle(self.layout_rectangles)
 
-    # -------------------------
-    # Public update helpers
-    # -------------------------
+    # Grid helpers ------------------------------------------
+
     def recompute_grid_dims(self):
         steps = int(round(self.MAX_ANGLE / self.ANGLE_STEP))
         self.grid_cols = steps + 1
         self.grid_rows = steps + 1
+
     def angle_to_index(self, angle: float, max_index: int) -> int:
         idx = int(round(angle / self.ANGLE_STEP))
         return max(0, min(idx, max_index))
 
     def index_to_angle(self, idx: int) -> float:
         return idx * self.ANGLE_STEP
-    def setPoint(self, state: PointState):
-        """Update a single point's distance and refresh its color."""
-        rect = self.get_rectangle_by_coordinates(state.x, state.y)
-        if rect:
-            rect.state.distant = state.distant
-            rect.auto_color()
 
+    def get_rectangle_by_coordinates(self, x: int, y: int) -> SmartRectangle | None:
+        return self.rect_map.get((x, y))
+
+    # Point updates -----------------------------------------
+
+    def setPoint(self, state: PointState):
+        """Update one point."""
+        rect = self.get_rectangle_by_coordinates(state.x, state.y)
+        if rect is None:
+            return
+
+        rect.state.distant = state.distant
+        rect.auto_color()
 
     def Update_point_grid(self, new_embedded_points: List[PointState]):
-        """Batch update a list of points (your existing method name kept)."""
+        """Update a batch of scan points."""
         for state in new_embedded_points:
-            x = self.angle_to_index(state.x , self.grid_cols - 1)
-            y = self.angle_to_index(state.y , self.grid_rows - 1)
+            x = self.angle_to_index(state.x, self.grid_cols - 1)
+            y = self.angle_to_index(state.y, self.grid_rows - 1)
+
             rect = self.get_rectangle_by_coordinates(x, y)
+            if rect is None:
+                continue
+
             rect.state.distant = state.distant
             rect.auto_color()
 
-    # -------------------------
-    # Selection logic 
-    # -------------------------
+    # Selection ---------------------------------------------
+
     def sendNewScanRange(self):
         if self.point_1 is None or self.point_2 is None:
             return None
-        MotorXlimte = (self.index_to_angle(self.point_1.state.x), self.index_to_angle(self.point_2.state.x))
-        MotorYlimte = (self.index_to_angle(self.point_1.state.y), self.index_to_angle(self.point_2.state.y))
-        X_Min_Max_index = (self.point_1.state.x, self.point_2.state.x)
-        Y_Min_Max_index = (self.point_1.state.y, self.point_2.state.y)
-        
 
-        for  y in range(min(Y_Min_Max_index), max(Y_Min_Max_index) + 1):
-            for x in range(min(X_Min_Max_index), max(X_Min_Max_index) + 1):
+        x1, y1 = self.point_1.state.x, self.point_1.state.y
+        x2, y2 = self.point_2.state.x, self.point_2.state.y
+
+        motor_x_limit = (
+            self.index_to_angle(min(x1, x2)),
+            self.index_to_angle(max(x1, x2)),
+        )
+        motor_y_limit = (
+            self.index_to_angle(min(y1, y2)),
+            self.index_to_angle(max(y1, y2)),
+        )
+
+        for y in range(min(y1, y2), max(y1, y2) + 1):
+            for x in range(min(x1, x2), max(x1, x2) + 1):
                 rect = self.get_rectangle_by_coordinates(x, y)
-                if rect:
-                    rect.is_selected = False
-                    rect.is_Zone = True
-                    rect.auto_color()
+                if rect is None:
+                    continue
 
+                rect.is_selected = False
+                rect.is_Zone = True
+                rect.auto_color()
 
         print(
-            f""" 
+            f"""
             --------------- Min-Max Scan Range Selected ---------------
-            Scan Range X: [{MotorXlimte[0]:.2f}, {MotorXlimte[1]:.2f}] 
-            Scan Range Y: [{MotorYlimte[0]:.2f}, {MotorYlimte[1]:.2f}] 
+            Scan Range X: [{motor_x_limit[0]:.2f}, {motor_x_limit[1]:.2f}]
+            Scan Range Y: [{motor_y_limit[0]:.2f}, {motor_y_limit[1]:.2f}]
             """
         )
-        self.send_cmd(ScanLimits(X=MotorXlimte, Y=MotorYlimte))
-        return MotorXlimte, MotorYlimte
-    def on_select_point(self, selRect: SmartRectangle):
-        if (
-            (self.point_1 is not None and self.point_2 is not None)
-            and (selRect.id != self.point_1.id and selRect.id != self.point_2.id)
-        ):
-            print("Both points are already selected. stop selecting more.")
+
+        self.send_cmd(ScanLimits(X=motor_x_limit, Y=motor_y_limit))
+        return motor_x_limit, motor_y_limit
+
+    def on_select_point(self, selected_rect: SmartRectangle):
+        if self.point_1 and self.point_1.id == selected_rect.id:
+            self._deselect_point_1()
             return
 
-        if self.point_1 is not selRect and self.point_1 is None:
-            self.point_1 = selRect
+        if self.point_2 and self.point_2.id == selected_rect.id:
+            self._deselect_point_2()
+            return
+
+        if self.point_1 is None:
+            self.point_1 = selected_rect
             self.point_1.is_selected = True
             self.point_1.auto_color()
             print(
-                f"Selected Point 1 at [ grid index {self.point_1.gridIndex}] "
-                f"| [cod pos {self.point_1.state.x}, {self.point_1.state.y}] "
+                f"Selected Point 1 at [grid index {self.point_1.gridIndex}] "
+                f"| [coord pos {self.point_1.state.x}, {self.point_1.state.y}] "
                 f"with distance {self.point_1.state.distant}"
             )
             return
 
-        elif (self.point_2 is not selRect and self.point_2 is None) and selRect is not self.point_1:
-            self.point_2 = selRect
+        if self.point_2 is None:
+            self.point_2 = selected_rect
             self.point_2.is_selected = True
             self.point_2.auto_color()
             print(
-                f"Selected Point 2 at [ grid index {self.point_2.gridIndex}] "
-                f"| [cod pos {self.point_2.state.x}, {self.point_2.state.y}] "
+                f"Selected Point 2 at [grid index {self.point_2.gridIndex}] "
+                f"| [coord pos {self.point_2.state.x}, {self.point_2.state.y}] "
                 f"with distance {self.point_2.state.distant}"
             )
-
             print("----------------------------------------------------")
             self.sendNewScanRange()
             return
 
-        # Deselect if clicked again
-        if self.point_1 and self.point_1.id == selRect.id:
-            print(
-                f"Deselected Point 1 at [ grid index {self.point_1.gridIndex}] "
-                f"| [cod pos {self.point_1.state.x}, {self.point_1.state.y}] "
-                f"with distance {self.point_1.state.distant}"
-            )
-            self.point_1.is_selected = False
-            self.point_1.auto_color()
-            self.point_1 = None
+        print("Both points are already selected. Stop selecting more.")
 
-        if self.point_2 and self.point_2.id == selRect.id:
-            print(
-                f"Deselected Point 2 at [ grid index {self.point_2.gridIndex}] "
-                f"| [cod pos {self.point_2.state.x}, {self.point_2.state.y}] "
-                f"with distance {self.point_2.state.distant}"
-            )
-            self.point_2.is_selected = False
-            self.point_2.auto_color()
-            self.point_2 = None
+    def _deselect_point_1(self):
+        if self.point_1 is None:
+            return
+
+        print(
+            f"Deselected Point 1 at [grid index {self.point_1.gridIndex}] "
+            f"| [coord pos {self.point_1.state.x}, {self.point_1.state.y}] "
+            f"with distance {self.point_1.state.distant}"
+        )
+        self.point_1.is_selected = False
+        self.point_1.auto_color()
+        self.point_1 = None
+
+    def _deselect_point_2(self):
+        if self.point_2 is None:
+            return
+
+        print(
+            f"Deselected Point 2 at [grid index {self.point_2.gridIndex}] "
+            f"| [coord pos {self.point_2.state.x}, {self.point_2.state.y}] "
+            f"with distance {self.point_2.state.distant}"
+        )
+        self.point_2.is_selected = False
+        self.point_2.auto_color()
+        self.point_2 = None
+
     def clear(self):
-        """Reset all points to default state."""
+        """Reset the grid state."""
         for row in self.smart_rectangles:
             for rect in row:
-                rect.state = replace(rect.state, distant=-1)  # reset distance
+                rect.state = replace(rect.state, distant=-1)
                 rect.is_selected = False
                 rect.is_Zone = False
                 rect.auto_color()
+
         self.point_1 = None
         self.point_2 = None
-    # -------------------------
-    # Lookups 
-    # -------------------------
 
-    def get_rectangle_by_coordinates(self, x: int, y: int) -> SmartRectangle | None:
-        for row in self.smart_rectangles:
-            for rect in row:
-                if rect.state.x == x and rect.state.y == y:
-                    return rect
-        return None
+    # Hover --------------------------------------------------
 
-    # -------------------------
-    # Hover handling 
-    # -------------------------
-    def Hover(self, _id: int | None, gridIndex: Tuple[int, int] | None):
-        """UI-only hover: outline highlight without destroying fill color."""
+    def Hover(self, _id=None, gridIndex=None):
         if gridIndex is None:
             return
-        item = self.get_rectangle_by_coordinates(gridIndex[0], gridIndex[1])
-        if item:
-            item.setHover(True)
 
-    def Unhover(self, _id: int | None, gridIndex: Tuple[int, int] | None):
-        """UI-only unhover: restore outline + fill based on state."""
+        rect = self.get_rectangle_by_coordinates(gridIndex[0], gridIndex[1])
+        if rect is not None:
+            rect.setHover(True)
+
+    def Unhover(self, _id=None, gridIndex=None):
         if gridIndex is None:
             return
-        item = self.get_rectangle_by_coordinates(gridIndex[0], gridIndex[1])
-        if item:
-            item.setHover(False)
+
+        rect = self.get_rectangle_by_coordinates(gridIndex[0], gridIndex[1])
+        if rect is not None:
+            rect.setHover(False)
