@@ -74,10 +74,10 @@ class Motor:
         self.angle_deg = max(min_logical, min(angle_deg, max_logical))
 
         self.apply_to_hardware()
-        print(
-            f"[DRV] set_angle: requested={angle_deg}, logical={self.angle_deg}, "
-            f"offset={self.offset_deg}, physical={self.last_physical}"
-        )
+        # print(
+        #     f"[DRV] set_angle: requested={angle_deg}, logical={self.angle_deg}, "
+        #     f"offset={self.offset_deg}, physical={self.last_physical}"
+        # )
 
     def get_offset(self) -> float:
         return self.offset_deg
@@ -86,10 +86,10 @@ class Motor:
         """Update offset and reapply current logical angle."""
         self.offset_deg = self.clamp_physical(offset_deg)
 
-        print(
-            f"[DRV] set_offset: requested={offset_deg}, "
-            f"applied_offset={self.offset_deg}, current_physical={self.last_physical}"
-        )
+        # print(
+        #     f"[DRV] set_offset: requested={offset_deg}, "
+        #     f"applied_offset={self.offset_deg}, current_physical={self.last_physical}"
+        # )
 
         if self.enabled and self.servo is not None:
             self.apply_to_hardware(force=True)

@@ -31,7 +31,7 @@ from ui.components.SmartCanvas import SmartCanvas
 
 
 class MainWindow(ctk.CTk):
-    def __init__(self, title: str = "Pi Control Panel", size: tuple[int, int] = (1000, 900)):
+    def __init__(self, title: str = "Pi Control Panel", size: tuple[int, int] = (1200, 1550)):
         super().__init__()
         self.title(title)
         self.geometry(f"{size[0]}x{size[1]}")
@@ -91,7 +91,7 @@ class MainWindow(ctk.CTk):
         # Menu
         menubar = tk.Menu(self)
         file_menu = tk.Menu(menubar, tearoff=0)
-        file_menu.add_command(label="Open MotorConfig", command=self.open_motor_config)
+        file_menu.add_command(label="Open MotorConfig", command=lambda: print("TODO: Open MotorConfig window"))
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.on_close)
         menubar.add_cascade(label="Config", menu=file_menu)
@@ -149,49 +149,157 @@ class MainWindow(ctk.CTk):
         self.motorY.grid(row=0, column=1, sticky="ew", padx=10, pady=10)
 
         # Scan controls card
+        # Scan controls card
         self.scan_card = ctk.CTkFrame(
             self.root_frame,
             fg_color=self.ui_colors["card"],
             border_width=1,
             border_color=self.ui_colors["border"],
             corner_radius=14,
+    )
+        self.scan_card.grid(row=0, column=1, sticky="nsew", padx=8, pady=8)
+
+        # 2-column layout inside scan_card
+        self.scan_card.grid_columnconfigure(0, weight=1)   # scan range side
+        self.scan_card.grid_rowconfigure(0, weight=0)   # buttons side
+        self.scan_card.grid_rowconfigure(1, weight=0)
+
+        # ----------------------------
+        # Bottom SIDE: Scan range panel
+        # ----------------------------
+        self.scan_range_panel = ctk.CTkFrame(
+            self.scan_card,
+            fg_color="transparent",
         )
-        self.scan_card.grid(row=0, column=1, sticky="ew", padx=8, pady=8)
-        self.scan_card.grid_columnconfigure(0, weight=1)
+        self.scan_range_panel.grid(row=1, column=0, sticky="ew", padx=8, pady=(4, 8))
+        self.scan_range_panel.grid_columnconfigure(0, weight=1)
+
+        self.scan_range_title = ctk.CTkLabel(
+            self.scan_range_panel,
+            text="Scan Range",
+            font=self.fonts["title"],
+            text_color=self.panel_colors["text"],
+            anchor="w",
+        )
+        self.scan_range_title.grid(row=0, column=0, sticky="w", pady=(0, 8))
+
+        # inner box for range values
+        self.scan_range_box = ctk.CTkFrame(
+            self.scan_range_panel,
+            fg_color=self.panel_colors["surface"],
+            border_width=1,
+            border_color=self.panel_colors["border"],
+            corner_radius=12,
+        )
+        self.scan_range_box.grid(row=1, column=0, sticky="ew")
+        self.scan_range_box.grid_columnconfigure(0, weight=1)
+
+        # X row
+        self.scan_x_frame = ctk.CTkFrame(self.scan_range_box, fg_color="transparent")
+        self.scan_x_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=(10, 6))
+        self.scan_x_frame.grid_columnconfigure(1, weight=1)
+
+        self.scan_x_label = ctk.CTkLabel(
+            self.scan_x_frame,
+            text="X",
+            width=24,
+            font=self.fonts["button"],
+            text_color=self.panel_colors["text"],
+            anchor="w",
+        )
+        self.scan_x_label.grid(row=0, column=0, sticky="w", padx=(0, 8))
+
+        self.scan_x_value = ctk.CTkLabel(
+            self.scan_x_frame,
+            text=f'{self.scan_range.Axis_X["uiLimit"]["min"]} - {self.scan_range.Axis_X["uiLimit"]["max"]}',
+            fg_color=self.panel_colors["card"],
+            corner_radius=10,
+            height=34,
+            anchor="w",
+            padx=12,
+            font=self.fonts["small"],
+            text_color=self.panel_colors["text"],
+        )
+        self.scan_x_value.grid(row=0, column=1, sticky="ew")
+
+        # Y row
+        self.scan_y_frame = ctk.CTkFrame(self.scan_range_box, fg_color="transparent")
+        self.scan_y_frame.grid(row=1, column=0, sticky="ew", padx=10, pady=(0, 10))
+        self.scan_y_frame.grid_columnconfigure(1, weight=1)
+
+        self.scan_y_label = ctk.CTkLabel(
+            self.scan_y_frame,
+            text="Y",
+            width=24,
+            font=self.fonts["button"],
+            text_color=self.panel_colors["text"],
+            anchor="w",
+        )
+        self.scan_y_label.grid(row=0, column=0, sticky="w", padx=(0, 8))
+
+        self.scan_y_value = ctk.CTkLabel(
+            self.scan_y_frame,
+            text=f'{self.scan_range.Axis_Y["uiLimit"]["min"]} - {self.scan_range.Axis_Y["uiLimit"]["max"]}',
+            fg_color=self.panel_colors["card"],
+            corner_radius=10,
+            height=34,
+            anchor="w",
+            padx=12,
+            font=self.fonts["small"],
+            text_color=self.panel_colors["text"],
+        )
+        self.scan_y_value.grid(row=0, column=1, sticky="ew")
+
+        # ----------------------------
+        # top SIDE: Buttons panel
+        # ----------------------------
+        self.scan_button_panel = ctk.CTkFrame(
+            self.scan_card,
+            fg_color="transparent",
+        )
+        self.scan_button_panel.grid(row=0, column=0, sticky="ew", padx=8, pady=(8, 4))
+
+        # make first 2 buttons side-by-side, last one full width
+        self.scan_button_panel.grid_columnconfigure(0, weight=1)
+        self.scan_button_panel.grid_columnconfigure(1, weight=1)
 
         self.scan_toggle = ctk.CTkButton(
-            self.scan_card,
-            text="Start Scan",
-            height=40,
-            corner_radius=12,
-            command=self.run_scan,
+                self.scan_button_panel,
+                text="Start Scan",
+                height=40,
+                corner_radius=12,
+                font=self.fonts["button"],
+                command=self.run_scan,
         )
+        self.scan_toggle.grid(row=0, column=0, sticky="ew", padx=(0, 6), pady=(0, 8))
+
         self.reset_toggle = ctk.CTkButton(
-            self.scan_card,
-            text="Reset",
-            height=40,
-            corner_radius=12,
-            command=self.reset,
+                self.scan_button_panel,
+                text="Reset",
+                height=40,
+                corner_radius=12,
+                font=self.fonts["button"],
+                command=self.reset,
         )
-        self.Calibration_toggle = ctk.CTkButton(
-            self.scan_card,
-            text="Start Calibration",
-            height=40,
-            corner_radius=12,
-            command=lambda: self.send_cmd(startCalibration()),
+        self.reset_toggle.grid(row=0, column=1, sticky="ew", padx=(6, 0), pady=(0, 8))
+
+        self.calibration_toggle = ctk.CTkButton(
+                self.scan_button_panel,
+                text="Start Calibration",
+                height=40,
+                corner_radius=12,
+                font=self.fonts["button"],
+                command=lambda: self.send_cmd(startCalibration()),
         )
+        self.calibration_toggle.grid(row=1, column=0, columnspan=2, sticky="ew")
 
-        self.scan_toggle.grid(row=0, column=0, sticky="ew", padx=12, pady=(12, 8))
-        self.reset_toggle.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 12))
-        self.Calibration_toggle.grid(row=2, column=0, sticky="ew", padx=12, pady=(0, 12))
-
-        # Range card
+            # Range card
         self.range_card = ctk.CTkFrame(
-            self.root_frame,
-            fg_color=self.ui_colors["card"],
-            border_width=1,
-            border_color=self.ui_colors["border"],
-            corner_radius=14,
+                self.root_frame,
+                fg_color=self.ui_colors["card"],
+                border_width=1,
+                border_color=self.ui_colors["border"],
+                corner_radius=14,
         )
         self.range_card.grid(row=0, column=2, sticky="ew", padx=8, pady=8)
         self.range_card.grid_columnconfigure(0, weight=1)
@@ -199,39 +307,49 @@ class MainWindow(ctk.CTk):
         self.s_range = RangePane(self.range_card, send_cmd=self.send_cmd, width=340, height=150)
         self.s_range.grid(row=0, column=0, sticky="ew", padx=12, pady=12)
 
-        # Smart canvas
+            # Smart canvas
         dummy_point_states = [
-            [PointState(x=j, y=i, distant=-1) for j in range(40)]
-            for i in range(40)
-        ]
+                [PointState(x=j, y=i, distant=-1) for j in range(40)]
+                for i in range(40)
+            ]
 
         self.smart_canvas = SmartCanvas(
-            self.root_frame,
-            send_cmd=self.send_cmd,
-            width=size[0],
-            height=size[1] - 200,
-            point_states=dummy_point_states,
-            bg="white",
-        )
+                self.root_frame,
+                send_cmd=self.send_cmd,
+                width=size[0],
+                height=size[1] - 200,
+                point_states=dummy_point_states,
+                bg="white",
+            )
         self.smart_canvas.grid(row=1, column=0, columnspan=3, sticky="nsew", padx=8, pady=8)
 
         self.clear_btn = ctk.CTkButton(
-            self.root_frame,
-            text="Clear Canvas",
-            height=36,
-            corner_radius=10,
-            font=self.fonts["button"],
-            fg_color=self.panel_colors["accent"],
-            hover_color=self.panel_colors["accentHover"],
-            text_color="white",
-            command=self.clear_canvas,
+                self.root_frame,
+                text="Clear Canvas",
+                height=36,
+                corner_radius=10,
+                font=self.fonts["button"],
+                fg_color=self.panel_colors["accent"],
+                hover_color=self.panel_colors["accentHover"],
+                text_color="white",
+                command=self.clear_canvas,
         )
         self.clear_btn.grid(row=2, column=0, columnspan=3, sticky="ew", padx=8, pady=(0, 8))
 
-        # Start polling events
+            # Start polling events
         self.after(self.system_config.tick_ms, self.poll_events)
         self.protocol("WM_DELETE_WINDOW", self.on_close)
-
+    
+    
+    
+    def Change_scan_RangeX(self, max , min) -> None:
+        self.scan_x_value.configure(
+            text=f'{min} - {max}'
+        )
+    def Change_scan_RangeY(self, max , min) -> None:
+        self.scan_y_value.configure(
+            text=f'{min} - {max}'
+        )
     def clear_canvas(self) -> None:
         self.smart_canvas.clear()
 
@@ -240,35 +358,77 @@ class MainWindow(ctk.CTk):
         self.motorX.setDisable(state)
         self.motorY.setDisable(state)
         self.s_range.setDisable(state)
+        
+        
+        
+    # specific method to disable scan controls when scan starts or stops, can be called from worker or other places if needed
+        
+    def onScanStart(self ):
+        self.motorX.DisablePanel()
+        self.motorY.DisablePanel()
+        self.s_range.Disable_Range()
+        self.Disable_Calibration_Toggle()
+    
+    def onScanStop(self):
+        self.motorX.EnablePanel()
+        self.motorY.EnablePanel()
+        self.s_range.Enable_Range()
 
+        self.Enable_Calibration_Toggle()
 
-    def set_scan_controls_enabled(self, enabled: bool) -> None:
-        state = "normal" if enabled else "disabled"
-        fg = "#1f6aa5" if enabled else "#D21010"
-        self.scan_toggle.configure(state=state, fg_color=fg)
-        self.reset_toggle.configure(state=state, fg_color=fg)
-        self.Calibration_toggle.configure(state=state, fg_color=fg)
+    def Disable_scan_Toggle(self):
+        self.scan_toggle.configure(state="disabled", fg_color="#D21010")
+    
+    def Enable_scan_Toggle(self):
+        self.scan_toggle.configure(state="normal", fg_color="#1f6aa5")
+    
+    
+    def Disable_reset_Toggle(self):
+        self.reset_toggle.configure(state="disabled", fg_color="#D21010")
+    
+    def Enable_reset_Toggle(self):
+        self.reset_toggle.configure(state="normal", fg_color="#1f6aa5")
+    
+    
+    def Disable_Calibration_Toggle(self):
+        self.Calibration_toggle.configure(state="disabled", fg_color="#D21010")
+        
+    def Enable_Calibration_Toggle(self):
+        self.Calibration_toggle.configure(state="normal", fg_color="#1f6aa5")
+    
+    def onCalibrationStart(self):
+        self.Disable_scan_Toggle()
+        self.Disable_reset_Toggle()
+        self.Disable_Calibration_Toggle()
+        self.motorX.DisablePanel()
+        self.motorY.DisablePanel()
+        self.s_range.Disable_Range()
 
-    def disable_scan_controls(self, on: bool) -> None:
-        self.set_scan_controls_enabled(on)
-
+    def onCalibrationStop(self):
+        self.Enable_scan_Toggle()
+        self.Enable_reset_Toggle()
+        self.Enable_Calibration_Toggle()
+        self.motorX.EnablePanel()
+        self.motorY.EnablePanel()
+        self.s_range.Enable_Range()
+  
     def run_scan(self) -> None:
         if self.scan_in_progress:
             self.scan_in_progress = False
             self.send_cmd(StopScan())
             self.scan_toggle.configure(text="Start Scan")
-            self.enable_widget(True)
+            self.onScanStop()
         else:
             self.send_cmd(StartScan())
             self.scan_in_progress = True
             self.scan_toggle.configure(text="Stop Scan")
-            self.enable_widget(False)
+            self.onScanStart()
 
     def reset(self) -> None:
         self.scan_in_progress = False
         self.send_cmd(StopScan())
         self.scan_toggle.configure(text="Start Scan")
-        self.enable_widget(True)
+        self.onScanStop()
 
     def send_cmd(self, cmd: Command) -> None:
         # Update local UI state for certain commands,
@@ -281,42 +441,17 @@ class MainWindow(ctk.CTk):
             case findMinMax(axis=_, action=mode):
                 if mode == "start":
                     self.set_scan_controls_enabled(False)
-                    self.enable_widget(False)
+                    self.onScanStop()
                 elif mode == "stop":
                     self.set_scan_controls_enabled(True)
-                    self.enable_widget(True)
+                    self.onScanStart()
 
             case _:
                 pass
 
         self.cmd_q.put(cmd)
 
-    def open_motor_config(self) -> None:
-        if self._motor_config_win is not None:
-            try:
-                if self._motor_config_win.winfo_exists():
-                    self._motor_config_win.deiconify()
-                    self._motor_config_win.lift()
-                    self._motor_config_win.focus()
-                    return
-            except Exception:
-                self._motor_config_win = None
-
-        self._motor_config_win = MotorConfigPanel(self, send_cmd=self.send_cmd)
-        self._motor_config_win.lift()
-        self._motor_config_win.focus()
-
-    def _forward_minmax_to_config_window(self, ev: MinMaxResult) -> None:
-        if self._motor_config_win is None:
-            return
-
-        try:
-            if self._motor_config_win.winfo_exists():
-                self._motor_config_win.update_result(ev)
-            else:
-                self._motor_config_win = None
-        except Exception:
-            self._motor_config_win = None
+   
 
     def poll_events(self) -> None:
         while True:
@@ -373,15 +508,16 @@ class MainWindow(ctk.CTk):
                 case CalibrationResult():
                     if ev.success:
                         print("Calibration successful!")
-                        self.set_scan_controls_enabled(True)
-                        self.enable_widget(True)
                         self.scan_toggle.configure(text="Start Scan")
                         self.reset_toggle.configure(text="Reset")
+                        self.calibration_toggle.configure(text="Calibrate in Progress...")
+                        self.onCalibrationStart()
                     else:
-                        print(f"Calibration failed: {ev.message}")
-                        self.set_scan_controls_enabled(False)
-                        self.enable_widget(False)
+                        print(f"Calibration stopped: {ev.message}")
+                        self.onCalibrationStop()
+                        self.calibration_toggle.configure(text="Calibrate")
 
+                        
                 case _:
                     pass
 
@@ -395,57 +531,3 @@ class MainWindow(ctk.CTk):
         self.destroy()
 
 
-class MotorConfigPanel(ctk.CTkToplevel):
-    def __init__(self, master: MainWindow, send_cmd: Callable[[Command], None], **kwargs):
-        super().__init__(master, **kwargs)
-
-        self.app = master
-        self.send_cmd = send_cmd
-
-        self.title("Motor Configuration")
-        self.geometry("850x450")
-        self.grid_columnconfigure(0, weight=1)
-
-        self.panelX = AngleStatusPanel(self, command=self.send_mode, Axis="x")
-        self.panelX.grid(row=0, column=0, padx=12, pady=12, sticky="ew")
-
-        self.panelY = AngleStatusPanel(self, command=self.send_mode, Axis="y")
-        self.panelY.grid(row=1, column=0, padx=12, pady=12, sticky="ew")
-
-        self.protocol("WM_DELETE_WINDOW", self.on_close)
-        self.transient(master)
-        self.grab_set()
-
-    def send_mode(self, axis: Literal["x", "y"], mode: Literal["stop", "start"]) -> None:
-        self.send_cmd(findMinMax(axis=axis, action=mode))
-
-        if axis == "x":
-            self.panelY.dis("disabled" if mode == "start" else "normal")
-        elif axis == "y":
-            self.panelX.dis("disabled" if mode == "start" else "normal")
-
-    def update_result(self, ev: MinMaxResult) -> None:
-        print(
-            f"MinMaxResult: max_angle={ev.max_angle}, "
-            f"min_angle={ev.min_angle}, distant={ev.distant}, status={ev.status}"
-        )
-
-        if ev.axis == "x":
-            self.panelX.set_maximum_angle(ev.max_angle)
-            self.panelX.set_minimum_angle(ev.min_angle)
-            self.panelX.set_range_cm(ev.distant)
-            self.panelX.set_status(ev.status)
-
-        elif ev.axis == "y":
-            self.panelY.set_maximum_angle(ev.max_angle)
-            self.panelY.set_minimum_angle(ev.min_angle)
-            self.panelY.set_range_cm(ev.distant)
-            self.panelY.set_status(ev.status)
-
-        if str(ev.status).lower() == "done":
-            self.panelX.dis("normal")
-            self.panelY.dis("normal")
-
-    def on_close(self) -> None:
-        self.app._motor_config_win = None
-        self.destroy()

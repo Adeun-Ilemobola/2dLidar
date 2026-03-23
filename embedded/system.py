@@ -207,126 +207,8 @@ class System:
         
         
         
+   
         
-    def find_min_max_mode(self):
-        if self.test_MinMax != "start":
-            return
-
-        m = self.motors[self.test_axis]
-        current_angle = float(m.get_offset())
-        rang = self.pump_lidar()
-
-        axis_min_max = self.min_max_Y_angle if self.test_axis == "y" else self.min_max_X_angle
-
-        clip_angle_max = 77 if self.test_axis == "x" else self.scanRangeMas.Y_Min_Max[1]
-        clip_angle_min = 0 if self.test_axis == "x" else self.scanRangeMas.Y_Min_Max[0]
-
-        # Safe validity check
-        is_valid_now = (rang is not None) and (rang > 16.0)
-
-        # -----------------------------
-        # Edge handling / sweep control
-        # -----------------------------
-        if current_angle >= clip_angle_max:
-            self.test_direction = -1
-            self.cycle_count += 1
-
-            if self.cycle_count >= self.max_cycle:
-                self.test_MinMax = "stop"
-                self.cycle_count = 0
-
-                self.event_Queue.put(Log(f"Min-Max test completed for axis {self.test_axis}."))
-                self.event_Queue.put(
-                    MinMaxResult(
-                        max_angle=axis_min_max[1],
-                        min_angle=axis_min_max[0],
-                        distant=rang if rang is not None else 0.0,
-                        axis=self.test_axis,
-                        status="Done",
-                    )
-                )
-
-                # Reset tracking values
-                self.min_max_X_angle = [-1.0, -1.0]
-                self.min_max_Y_angle = [-1.0, -1.0]
-
-                # Restore your default/normal values
-                self.rangeMax = 400
-                self.rangeMin = 1.50
-
-                # Reset offsets (your chosen "visual center-ish" values)
-                xOffset = 79
-                yOffset = 124.1
-                m.set_offset(xOffset if self.test_axis == "x" else yOffset)
-                self.publish_motor(self.test_axis)
-                return
-
-        elif current_angle <= clip_angle_min:
-            self.test_direction = 1
-            self.cycle_count += 1
-
-        # -----------------------------
-        # Update min/max only if valid
-        # -----------------------------
-        if is_valid_now:
-            self.event_Queue.put(
-                Log(
-                    f"""
-Axis {self.test_axis}
-range is {rang}.
-----------------------
-Min angle is {axis_min_max[0]}.
-Max angle is {axis_min_max[1]}.
-----------------------
-max range is {self.rangeMax}
-min range is {self.rangeMin}
-----------------------
-current angle is {current_angle}
-direction is {self.test_direction}
-----------------------
-max cycle is {self.max_cycle}
-cycle count is {self.cycle_count}
-----------------------
-"""
-                )
-            )
-
-            # Track max range
-            if rang > self.rangeMax:
-                self.rangeMax = rang
-                axis_min_max[1] = current_angle
-
-            # Track min range
-            if rang < self.rangeMin:
-                self.rangeMin = rang
-                axis_min_max[0] = current_angle
-
-            self.event_Queue.put(
-                MinMaxResult(
-                    max_angle=axis_min_max[1],
-                    min_angle=axis_min_max[0],
-                    distant=rang,
-                    axis=self.test_axis,
-                    status="in progress",
-                )
-            )
-
-        # -----------------------------
-        # ALWAYS move motor
-        # -----------------------------
-        step_deg = 1.0
-        next_angle = current_angle + (step_deg * self.test_direction)
-
-        if self.test_axis == "y":
-            next_angle = min(
-                self.scanRangeMas.Y_Min_Max[1],
-                max(self.scanRangeMas.Y_Min_Max[0], next_angle),
-            )
-        else:
-            next_angle = min(77, max(0, next_angle))
-
-        m.set_offset(next_angle)
-        self.publish_motor(self.test_axis)
     def cal_Calibration_mode(self):
        
         getarry = self.calibration_range[self.calibration_axis]
@@ -337,17 +219,32 @@ cycle count is {self.cycle_count}
         tol = 50
         start_Point = None
         end_Point = None
+        print("Calibration data points collected:", len(getarry))
+        print(f"Analyzing calibration data for axis {self.calibration_axis} with tolerance {tol}...")
+        print("Data points:")
+        print("------------------------------------------------------")
+        
+        for point_index, point in enumerate(getarry):
+            print(f"Calibration data point {point_index}: Axis: {self.calibration_axis}, Angle: {point.x if self.calibration_axis == 'x' else point.y}, Distance: {point.distant}")
+        print("------------------------------------------------------")
+        
                
         for point_index, point in enumerate(getarry):
-            self.event_Queue.put(Log(f"Calibration data - Axis: {self.calibration_axis}, Angle: {point.x}, Distance: {point.y}"))
+            self.event_Queue.put(Log(f"Calibration data point {point_index}: Axis: {self.calibration_axis}, Angle: {point.x}, Distance: {point.y} PPPPPP"))
             prev = getarry[point_index - 1] if point_index > 0 else None
             next = getarry[point_index + 1] if point_index < len(getarry) - 1 else None
+            
+            print("Current point:", point)
+            print("Previous point:", prev)
+            print("Next point:", next)
+            
 
-            if prev is  None and next is  None:
-                    continue
+            if prev is  None or next is  None: 
+                continue
 
             dif_prev = abs(point.distant - prev.distant) 
             dif_next = abs(next.distant - point.distant) 
+            print("dif_prev:", dif_prev, "dif_next:", dif_next)
 
             is_start_spike  = dif_prev <= tol and dif_next > tol
             is_end_spike  = dif_prev > tol and dif_next <= tol
@@ -379,7 +276,7 @@ cycle count is {self.cycle_count}
             self.cal_Calibration_mode()
             msg = " next is Y axis" if self.calibration_axis == "x" else "All done!"
             self.event_Queue.put(
-    Log(f"Calibration completed for axis {self.calibration_axis}.{msg}")
+            Log(f"Calibration completed for axis {self.calibration_axis}.{msg}")
 )
             if self.calibration_axis == "x":
                 midpoint = (self.Calibration_spike["x"][0] + self.Calibration_spike["x"][1]) / 2
@@ -414,9 +311,9 @@ cycle count is {self.cycle_count}
         self.publish_motor(self.calibration_axis)
 
         # Check for completion
-        if next_angle >= 180.0:
+        if next_angle >= 160.0:
             self.calibration_cycle_count += 1
-            m.set_offset(0.0)  # Reset to start
+            m.set_offset(64.6)  # Reset to start
             self.cal_Calibration_mode()
        
 
@@ -612,12 +509,7 @@ cycle count is {self.cycle_count}
                 self.lidar.reset()
                 self.disamtTime.reset()
 
-                # reset motors to start position
-                self.motors["x"].set_angle(self.scan_range_x[0])
-                self.motors["y"].set_angle(self.scan_range_y[0])
-                self.publish_motor("x")
-                self.publish_motor("y")
-
+              
                 # reset scan state
                 self.calibration_axis = "x"
                 self.calibration_range = {"x": [], "y": []}
@@ -673,142 +565,3 @@ cycle count is {self.cycle_count}
                 self.event_Queue.put(Log(f"Unknown command: {cmd}"))
 
 
-
-
-
-        # if isinstance(cmd, EnableMotor):
-        #     m = self.motors[cmd.axis]
-        #     m.enable(cmd.enabled)
-        #     self.publish_motor(cmd.axis)
-
-        # elif isinstance(cmd, SetMotorAngle):
-        #     m = self.motors[cmd.axis]
-        #     m.set_angle(cmd.angle_deg)
-        #     self.publish_motor(cmd.axis)
-
-        # elif isinstance(cmd, SetMotorOffset):
-        #     m = self.motors[cmd.axis]
-        #     m.set_offset(cmd.offset_deg)
-        #     self.publish_motor(cmd.axis)
-
-        # elif isinstance(cmd, StartScan):
-        #     # Stop other modes
-        #     self.is_continuous_mode = False
-        #     self.test_MinMax = "stop"
-
-        #     # Reset scan state
-        #     self.is_scanning = True
-        #     self.scan_x = self.scan_range_x[0]
-        #     self.scan_y = self.scan_range_y[0]
-        #     self.scan_direction = 1
-        #     self.samples_point = []
-        #     self.point_grid = []
-        #     self.scan_start_time = None
-        #     self.timer_av = False
-            
-            
-        #     self.getRamge = False
-        #     self.lidar.reset()
-        #     self.lidar.request()
-
-        #     # Move to start position
-        #     self.motors["x"].set_angle(self.scan_x)
-        #     self.motors["y"].set_angle(self.scan_y)
-        #     self.publish_motor("x")
-        #     self.publish_motor("y")
-
-        #     self.event_Queue.put(Log("Scan started."))
-
-        # elif isinstance(cmd, StopScan):
-        #     self.is_scanning = False
-        #     self.timer_av = False
-        #     self.scan_start_time = None
-        #     self.event_Queue.put(ScanProgress(current=0, total=self.scanRangeMas.avg_scan_time, start=False))
-        #     self.event_Queue.put(Log("Scan stopped."))
-
-        # elif isinstance(cmd, callRange):
-        #     self.getRamge = True
-        #     self.event_Queue.put(Log("Range requested."))
-
-        # elif isinstance(cmd, setStepSize):
-        #     if (
-        #         cmd.step_size <= 0
-        #         or cmd.step_size > (self.scan_range_x[1] - self.scan_range_x[0])
-        #         or cmd.step_size > 5
-        #     ):
-        #         self.event_Queue.put(
-        #             Log(f"Invalid step size: {cmd.step_size}. Must be positive and within scan range.")
-        #         )
-        #         return
-
-        #     self.step_size = cmd.step_size
-        #     self.event_Queue.put(Log(f"Step size set to {self.step_size} degrees."))
-
-        # elif isinstance(cmd, continuous_mode):
-            
-        #     # Stop scan/minmax when continuous mode is enabled
-        #     if cmd.continuous_mode:
-        #         self.is_scanning = False
-        #         self.test_MinMax = "stop"
-        #         self.getRamge = False
-        #         self.prev_Rangging = None
-        #         self.lidar.reset()
-        #         self.disamtTime.reset()
-
-        #     self.is_continuous_mode = cmd.continuous_mode
-        #     mode_str = "enabled" if self.is_continuous_mode else "disabled"
-        #     self.event_Queue.put(Log(f"Continuous mode {mode_str}."))
-
-        # elif isinstance(cmd, findMinMax):
-        #     if cmd.action == "start":
-        #         # Stop other modes
-        #         self.is_scanning = False
-        #         self.is_continuous_mode = False
-                
-        #         self.getRamge = False
-        #         self.lidar.reset()
-        #         self.lidar.request()
-
-        #         self.test_MinMax = "start"
-        #         self.test_axis = cmd.axis
-
-        #         # Initialize Min/Max tracking fresh
-        #         self.cycle_count = 0
-        #         self.test_direction = 1
-        #         self.rangeMax = float("-inf")
-        #         self.rangeMin = float("inf")
-        #         self.min_max_X_angle = [-1.0, -1.0]
-        #         self.min_max_Y_angle = [-1.0, -1.0]
-
-        #         self.event_Queue.put(Log(f"Find Min Max started on axis {cmd.axis}."))
-
-        #     elif cmd.action == "stop":
-        #         self.test_MinMax = "stop"
-        #         self.test_axis = cmd.axis
-        #         self.event_Queue.put(Log(f"Find Min Max stopped on axis {cmd.axis}."))
-        # elif isinstance(cmd, ScanLimits):
-        #     self.limit_scam["X"]["min"] = cmd.X[0]
-        #     self.limit_scam["X"]["max"] = cmd.X[1]
-        #     self.limit_scam["Y"]["min"] = cmd.Y[0]
-        #     self.limit_scam["Y"]["max"] = cmd.Y[1]
-
-        #     self.event_Queue.put(
-        #         Log(
-        #             f"Scan limits updated. X: [{cmd.X[0]:.2f}, {cmd.X[1]:.2f}], Y: [{cmd.Y[0]:.2f}, {cmd.Y[1]:.2f}]"
-        #         )
-        #     )
-        # elif isinstance(cmd, clearZone):
-        #     self.limit_scam = {
-        #     "X":{
-        #         "min": self.scanRangeMas.range_X_max[0],
-        #         "max": self.scanRangeMas.range_X_max[1]
-        #     },
-        #     "Y":{
-        #         "min": self.scanRangeMas.Y_Min_Max[0],
-        #         "max": self.scanRangeMas.Y_Min_Max[1]
-        #     }
-        # }
-        #     self.event_Queue.put(Log("Scan limits reset to default."))
-            
-        # else:
-        #     self.event_Queue.put(Log(f"Unknown command: {cmd!r}"))

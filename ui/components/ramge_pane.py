@@ -233,28 +233,31 @@ class RangePane(ctk.CTkFrame):
     def update_range(self, distance: float):
         self.range_value.set(f"{distance:.2f} cm")
 
-    def setDisable(self, state: Literal["disabled", "normal"]):
-        self.Disable = state == "disabled"
-        if self.Disable:
-            self.refresh_button.configure(state="disabled")
-            self.ranging_button.configure(state="disabled")
+   
+            
+    def Disable_Range():
+        self.refresh_button.configure(state="disabled")
+        self.ranging_button.configure(state="disabled")
 
             # UI-only: muted disabled appearance
-            self.refresh_button.configure(
+        self.refresh_button.configure(
                 fg_color=self.colors["disabledFill"],
                 hover_color=self.colors["disabledFill"],
                 text_color=self.colors["disabledText"],
             )
-            self.ranging_button.configure(
+        self.ranging_button.configure(
                 fg_color=self.colors["disabledFill"],
                 hover_color=self.colors["disabledFill"],
                 text_color=self.colors["disabledText"],
                 border_width=0,
             )
-            self.mode_badge.configure(text="DISABLED")
-        else:
-            self.refresh_button.configure(state="normal")
-            self.ranging_button.configure(state="normal")
+        self.mode_badge.configure(text="DISABLED")
+    
+    
+    def Enable_Range():
+        self.refresh_button.configure(state="normal")
+        self.ranging_button.configure(state="normal")
 
             # Restore based on current continuous state
-            self.updateContinuousVisuals()
+        self.updateContinuousVisuals()
+        

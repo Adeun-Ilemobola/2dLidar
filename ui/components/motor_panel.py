@@ -393,27 +393,30 @@ class MotorPanel(ctk.CTkFrame):
         else:
             badgeLabel.configure(text="ANGLE")
 
-    def setDisable(self, state: Literal["disabled", "normal"]):
-        if state == "disabled":
-            self.Disable = True
-            self.slider.configure(state="disabled")
-            self.entry.configure(state="disabled")
-            self.send_button.configure(state="disabled")
-            self.offset_checkbox.configure(state="disabled")
+    
+    def DisablePanel(self):
+         self.Disable = True
+         self.slider.configure(state="disabled")
+         self.entry.configure(state="disabled")
+         self.send_button.configure(state="disabled")
+         self.offset_checkbox.configure(state="disabled")
 
-            # UI-only: disabled look should be muted (not error red)
-            self.configure(fg_color=("#ECEFF3", "#111318"))
-            self.send_button.configure(fg_color=("#B9C3CF", "#2A2F37"), hover_color=("#B9C3CF", "#2A2F37"))
-        else:
-            self.Disable = False
-            self.slider.configure(state="normal")
-            self.entry.configure(state="normal")
-            self.send_button.configure(state="normal")
-            self.offset_checkbox.configure(state="normal")
+         # UI-only: disabled look should be muted (not error red)
+         self.configure(fg_color=("#ECEFF3", "#111318"))
+         self.send_button.configure(fg_color=("#B9C3CF", "#2A2F37"), hover_color=("#B9C3CF", "#2A2F37"))
+        
+        
 
-            # Restore default surface + primary button look
-            self.configure(fg_color=("#F2F3F5", "#14161A"))
-            self.send_button.configure(fg_color=("#1F6AA5", "#1F6AA5"), hover_color=("#195A8D", "#195A8D"))
+    def EnablePanel(self):
+        self.Disable = False
+        self.slider.configure(state="normal")
+        self.entry.configure(state="normal")
+        self.send_button.configure(state="normal")
+        self.offset_checkbox.configure(state="normal")
+
+        # Restore default surface + primary button look
+        self.configure(fg_color=("#F2F3F5", "#14161A"))
+        self.send_button.configure(fg_color=("#1F6AA5", "#1F6AA5"), hover_color=("#195A8D", "#195A8D"))
 
     @staticmethod
     def read_float(text: str, default: float) -> float:
