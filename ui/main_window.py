@@ -22,6 +22,7 @@ from shared.protocol import (
     getRange,
     ScanAreaGrid,
     startCalibration,
+    sendMinMaxResult
 )
 
 from ui.components.AngleStatusPanel import AngleStatusPanel
@@ -493,17 +494,11 @@ class MainWindow(ctk.CTk):
                 case ScanAreaGrid():
                     self.smart_canvas.Update_point_grid(ev.points)
 
-                case MinMaxResult():
-                    print(
-                        f"MinMaxResult: max_angle={ev.max_angle}, "
-                        f"min_angle={ev.min_angle}, distant={ev.distant}, status={ev.status}"
-                    )
-
-                    if str(ev.status).lower() == "done":
-                        self.set_scan_controls_enabled(True)
-                        self.enable_widget(True)
-
-                    self._forward_minmax_to_config_window(ev)
+                case sendMinMaxResult():
+                    data = ev                    
+                    self.Change_scan_RangeX(data.X[1], data.X[0])
+                    self.Change_scan_RangeY(data.Y[1], data.Y[0])
+                   
 
                 case CalibrationResult():
                     if ev.success:

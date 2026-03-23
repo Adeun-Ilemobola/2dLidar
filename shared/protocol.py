@@ -57,6 +57,8 @@ class findMinMax:
     action : Literal["start", "stop"]
 
 
+  
+
 @dataclass(frozen=True, slots=True)
 class ScanLimits:
    X: tuple[float, float]
@@ -84,7 +86,11 @@ class MinMaxResult:
     distant : float
     status : Literal["Idle", "Scanning", "Error" ,"Done" , "in progress"]
     
-
+@dataclass(frozen=True, slots=True)
+class sendMinMaxResult: 
+    X : [float, float]
+    Y : [float, float]
+ 
 
 
 @dataclass(frozen=True, slots=True)
@@ -134,7 +140,7 @@ class CalibrationResult:
     success: bool
     message: Optional[str] = None
 
-Event = Union[MotorState, Log, ScanProgress , PointState , ScanAreaGrid , getRange , MinMaxResult, CalibrationResult]
+Event = Union[MotorState, Log, ScanProgress , PointState , ScanAreaGrid , getRange , MinMaxResult, CalibrationResult , sendMinMaxResult]
 
 
 # ---------- universal types ----------

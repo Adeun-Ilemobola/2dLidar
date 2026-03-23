@@ -14,7 +14,7 @@ from shared.protocol import (
     Event,
     Log,
     EnableMotor,
-    MinMaxResult,
+    sendMinMaxResult,
     ScanAreaGrid,
     SetMotorAngle,
     SetMotorOffset,
@@ -129,8 +129,8 @@ class System:
         # Center / home
         self.motors["x"].set_angle(0)
         self.motors["y"].set_angle(0)
-        self.motors["x"].set_offset(0)
-        self.motors["y"].set_offset(self.scanRangeMas.Y_Min_Max[0])
+        self.motors["x"].set_offset(self.scanRangeMas.Axis_X["uiLimit"]["max"] / 2)
+        self.motors["y"].set_offset(self.scanRangeMas.Axis_Y["uiLimit"]["max"] / 2) 
 
         # Min/Max mode starts with a fresh state, so we can call it here to set initial tracking values
 
@@ -219,16 +219,7 @@ class System:
         tol = 50
         start_Point = None
         end_Point = None
-        print("Calibration data points collected:", len(getarry))
-        print(f"Analyzing calibration data for axis {self.calibration_axis} with tolerance {tol}...")
-        print("Data points:")
-        print("------------------------------------------------------")
-        
-        for point_index, point in enumerate(getarry):
-            print(f"Calibration data point {point_index}: Axis: {self.calibration_axis}, Angle: {point.x if self.calibration_axis == 'x' else point.y}, Distance: {point.distant}")
-        print("------------------------------------------------------")
-        
-               
+             
         for point_index, point in enumerate(getarry):
             self.event_Queue.put(Log(f"Calibration data point {point_index}: Axis: {self.calibration_axis}, Angle: {point.x}, Distance: {point.y} PPPPPP"))
             prev = getarry[point_index - 1] if point_index > 0 else None
@@ -256,14 +247,20 @@ class System:
                 if is_end_spike:
                     end_Point = point
                     break
-
+        print("end of loop. start_Point:", start_Point, "end_Point:", end_Point)
         if start_Point is None or end_Point is None:
             self.event_Queue.put(Log(f"Could not identify valid calibration points for axis {self.calibration_axis}."))
             return
+        
         start_angle = start_Point.x if self.calibration_axis == "x" else start_Point.y
         end_angle = end_Point.x if self.calibration_axis == "x" else end_Point.y
-        self.Calibration_spike[self.calibration_axis] = [start_angle, end_angle]
         
+        self.Calibration_spike[self.calibration_axis] = [start_angle, end_angle]
+        self.event_Queue.put(sendMinMaxResult(
+            X=self.Calibration_spike["x"],
+            Y=self.Calibration_spike["y"]
+        ))
+        self.event_Queue.put(Log(f"Calibration points identified for axis {self.calibration_axis}. and sent to UI successfully. Start angle: {start_angle}, End angle: {end_angle}"))
 
 
 
@@ -273,17 +270,18 @@ class System:
         if self.calibration_cycle_count >= self.calibration_max_cycle:
             self.calibration_mode = "stop"
             self.calibration_cycle_count = 0
-            self.cal_Calibration_mode()
             msg = " next is Y axis" if self.calibration_axis == "x" else "All done!"
             self.event_Queue.put(
             Log(f"Calibration completed for axis {self.calibration_axis}.{msg}")
 )
             if self.calibration_axis == "x":
                 midpoint = (self.Calibration_spike["x"][0] + self.Calibration_spike["x"][1]) / 2
-                self.motors["x"].set_angle(midpoint)   
+                self.motors["x"].set_offset(midpoint)   
                 self.calibration_axis = "y"
                 self.calibration_mode = "start"
             else:
+                midpoint = (self.Calibration_spike["y"][0] + self.Calibration_spike["y"][1]) / 2
+                self.motors["y"].set_offset(midpoint)
                 self.calibration_mode = "stop"
                 self.calibration_cycle_count = 0
                 self.event_Queue.put(CalibrationResult(
@@ -305,17 +303,25 @@ class System:
             ))
 
         step_deg = 1.0
-        next_angle = current_angle + step_deg
+        dir = -1 if self.calibration_axis == "x" else 1  # X goes negative, Y goes positive
+        next_angle = current_angle + (step_deg * dir)
 
         m.set_offset(next_angle)
         self.publish_motor(self.calibration_axis)
-
-        # Check for completion
-        if next_angle >= 160.0:
-            self.calibration_cycle_count += 1
-            m.set_offset(64.6)  # Reset to start
-            self.cal_Calibration_mode()
-       
+        if self.calibration_axis == "x":
+            if next_angle == 0.0:  # Completed a full cycle
+                self.calibration_cycle_count += 1
+                m.set_offset(self.scanRangeMas.Axis_X["uiLimit"]["max"] / 2)  # Reset to center
+                self.cal_Calibration_mode()
+              
+        else:
+            # Check for completion
+            if next_angle >= 160.0:
+                self.calibration_cycle_count += 1
+                m.set_offset(64.6)  # Reset to start
+                self.cal_Calibration_mode()
+               
+        
 
 
 

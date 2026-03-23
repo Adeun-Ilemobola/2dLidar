@@ -32,8 +32,8 @@ class scanRange:
         },
         "startMax":23.0,
         "uiLimit":{
-            "min": 72,
-            "max": 165
+            "min": 0,
+            "max": 175
         }
     }
 
