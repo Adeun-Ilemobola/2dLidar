@@ -212,55 +212,66 @@ class System:
     def cal_Calibration_mode(self):
        
         getarry = self.calibration_range[self.calibration_axis]
-        if len(getarry) == 0:
+        if len(getarry) < 5:
             self.event_Queue.put(Log(f"No data collected for calibration on axis {self.calibration_axis}."))
             return
         
         tol = 50
+        window_size = 3
         start_Point = None
         end_Point = None
              
-        for point_index, point in enumerate(getarry):
-            self.event_Queue.put(Log(f"Calibration data point {point_index}: Axis: {self.calibration_axis}, Angle: {point.x}, Distance: {point.y} PPPPPP"))
-            prev = getarry[point_index - 1] if point_index > 0 else None
-            next = getarry[point_index + 1] if point_index < len(getarry) - 1 else None
-            
-            print("Current point:", point)
-            print("Previous point:", prev)
-            print("Next point:", next)
-            
-
-            if prev is  None or next is  None: 
-                continue
-
-            dif_prev = abs(point.distant - prev.distant) 
-            dif_next = abs(next.distant - point.distant) 
-            print("dif_prev:", dif_prev, "dif_next:", dif_next)
-
-            is_start_spike  = dif_prev <= tol and dif_next > tol
-            is_end_spike  = dif_prev > tol and dif_next <= tol
+        for i in range(1 ,len(getarry) - window_size ):
+            prev = getarry[i - 1]
+            curr = getarry[i]
 
             if start_Point is None:
-                if is_start_spike:
-                    start_Point = point
-            else:
-                if is_end_spike:
-                    end_Point = point
+                dif_prev = abs(curr.distant - prev.distant)
+
+                #
+                is_sustained = all(
+                abs(getarry[i + j].distant - prev.distant) > tol
+                for j in range(1, window_size + 1)
+            )
+
+                if dif_prev > tol and is_sustained:
+                    start_Point = curr
+                    angle = curr.x if self.calibration_axis == "x" else curr.y
+                    self.event_Queue.put(Log(f"Start edge detected at angle: {angle}"))
+            elif end_Point is None:
+                dif_prev = abs(curr.distant - prev.distant)
+
+                is_sustained = all(
+                abs(getarry[i + j].distant - curr.distant) <= tol
+                for j in range(1, window_size + 1)
+            )
+
+                if dif_prev > tol and is_sustained:
+                    end_Point = curr
+                    angle = curr.x if self.calibration_axis == "x" else curr.y
+                    self.event_Queue.put(Log(f"End edge detected at angle: {angle}"))
                     break
-        print("end of loop. start_Point:", start_Point, "end_Point:", end_Point)
-        if start_Point is None or end_Point is None:
-            self.event_Queue.put(Log(f"Could not identify valid calibration points for axis {self.calibration_axis}."))
+        # --- Validation Logic ---
+        if not start_Point or not end_Point:
+            self.event_Queue.put(Log(f"Failed to find clear edges on {self.calibration_axis}. Check for obstructions."))
             return
         
+
         start_angle = start_Point.x if self.calibration_axis == "x" else start_Point.y
         end_angle = end_Point.x if self.calibration_axis == "x" else end_Point.y
+        low_angle, high_angle = sorted([start_angle, end_angle])
+
+        if abs(high_angle - low_angle) < 1.0: # Minimum expected aperture width in degrees
+            self.event_Queue.put(Log(f"Calibration error: Detected aperture on {self.calibration_axis} is too narrow."))
+            return
         
-        self.Calibration_spike[self.calibration_axis] = [start_angle, end_angle]
-        self.event_Queue.put(sendMinMaxResult(
-            X=self.Calibration_spike["x"],
-            Y=self.Calibration_spike["y"]
-        ))
-        self.event_Queue.put(Log(f"Calibration points identified for axis {self.calibration_axis}. and sent to UI successfully. Start angle: {start_angle}, End angle: {end_angle}"))
+        self.Calibration_spike[self.calibration_axis] = [low_angle, high_angle]
+
+        if self.calibration_axis == "y":
+            self.event_Queue.put(sendMinMaxResult(
+                X=self.Calibration_spike["x"],
+                Y=self.Calibration_spike["y"]
+            ))
 
 
 
