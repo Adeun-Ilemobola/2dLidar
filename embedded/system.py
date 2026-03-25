@@ -216,7 +216,7 @@ class System:
         if len(getarry) < 5:
             self.event_Queue.put(Log(f"No data collected for calibration on axis {self.calibration_axis}."))
             return
-        print(f"Calibration data points collected for axis {self.calibration_axis}: {[ (p.x, p.y, p.distant) for p in getarry ]}")
+        print(f"Calibration data points collected for axis {self.calibration_axis}: {len(getarry)}") 
         tol = 50
         window_size = 3
         start_Point = None
@@ -325,15 +325,18 @@ class System:
                 self.calibration_cycle_count += 1
                 m.set_offset(self.scanRangeMas.Axis_X["uiLimit"]["max"] / 2)  # Reset to center
                 self.cal_Calibration_mode()
-                self.calibration_range[self.calibration_axis] = []  # Clear data for next cycle
+                if self.calibration_cycle_count < self.calibration_max_cycle:
+                    self.calibration_range[self.calibration_axis] = []  # Clear data for next cycle
               
         else:
             # Check for completion
-            if next_angle >= 160.0:
+            if next_angle >= 170.0:
                 self.calibration_cycle_count += 1
                 m.set_offset(64.6)  # Reset to start
                 self.cal_Calibration_mode()
-                self.calibration_range[self.calibration_axis] = []  # Clear data for next cycle
+                if self.calibration_cycle_count < self.calibration_max_cycle:
+                    self.calibration_range[self.calibration_axis] = []  # Clear data for next cycle
+                  
                
         
 

@@ -1,13 +1,16 @@
 {
-  "version": "0.2.0",
-  "configurations": [
-    {
-      "name": "Run main.py",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "${workspaceFolder}/main.py",
-      "console": "integratedTerminal",
-      "cwd": "${workspaceFolder}"
-    }
-  ]
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Main Project",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/home/admin/projects/2dLidar/main.py", // Lock it to main.py
+            "console": "integratedTerminal",
+            "env": {
+                "DISPLAY": ":1.0",
+                "PYTHONPATH": "${workspaceFolder}" // Tells Python to look in the root folder
+            }
+        }
+    ]
 }
