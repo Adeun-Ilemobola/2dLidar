@@ -392,10 +392,10 @@ class MainWindow(ctk.CTk):
     
     
     def Disable_Calibration_Toggle(self):
-        self.Calibration_toggle.configure(state="disabled", fg_color="#D21010")
+        self.calibration_toggle.configure(state="disabled", fg_color="#D21010")
         
     def Enable_Calibration_Toggle(self):
-        self.Calibration_toggle.configure(state="normal", fg_color="#1f6aa5")
+        self.calibration_toggle.configure(state="normal", fg_color="#1f6aa5")
     
     def onCalibrationStart(self):
         self.Disable_scan_Toggle()

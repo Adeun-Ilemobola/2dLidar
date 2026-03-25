@@ -99,7 +99,7 @@ class VL53L1XSensor:
         raw = None
         try:
             raw = self.sensor.distance
-            print(f"VL53L1X raw distance: {raw!r}")
+            ##print(f"VL53L1X raw distance: {raw!r}")
         except Exception as e:
             print(f"VL53L1X read error: {e!r}")
         finally:
