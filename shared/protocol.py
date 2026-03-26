@@ -72,6 +72,10 @@ class clearZone:
 class startCalibration:
    pass 
 
+@dataclass(frozen=True, slots=True)
+class stopCalibration:
+   pass
+
 
 Command = Union[EnableMotor, SetMotorAngle, SetMotorOffset, StartScan, StopScan , stopCommands , resumeCommands , callRange, setStepSize , continuous_mode , findMinMax, ScanLimits, clearZone, startCalibration]
 

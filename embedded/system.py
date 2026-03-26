@@ -30,7 +30,8 @@ from shared.protocol import (
     findMinMax,
     ScanLimits,
     clearZone ,
-    startCalibration
+    startCalibration,
+    stopCalibration
 
 )
 from shared.time import Timer
@@ -546,6 +547,14 @@ class System:
                 self.event_Queue.put(CalibrationResult(
                     success=True,
                     message=f"Calibration started."
+                ))
+                return
+            
+            case stopCalibration():
+                self.calibration_mode = "stop"
+                self.event_Queue.put(CalibrationResult(
+                    success=False,
+                    message=f"Calibration stopped."
                 ))
                 return
             case findMinMax():

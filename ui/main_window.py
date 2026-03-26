@@ -9,7 +9,6 @@ from embedded.worker import HardwareWorker
 from shared.config import SystemConfig, scanRange
 from shared.protocol import (
     CalibrationResult,
-    MinMaxResult,
     MotorState,
     Log,
     ScanProgress,
@@ -430,6 +429,8 @@ class MainWindow(ctk.CTk):
         self.send_cmd(StopScan())
         self.scan_toggle.configure(text="Start Scan")
         self.onScanStop()
+        self.smart_canvas.clear()
+        
 
     def send_cmd(self, cmd: Command) -> None:
         # Update local UI state for certain commands,
