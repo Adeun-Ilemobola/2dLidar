@@ -1,3 +1,4 @@
+# SmartCanvas: A custom canvas widget for visualizing and interacting with a grid of points.
 from customtkinter import CTkCanvas
 from typing import List
 from dataclasses import replace

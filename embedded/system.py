@@ -216,8 +216,7 @@ class System:
         if len(getarry) < 5:
             self.event_Queue.put(Log(f"No data collected for calibration on axis {self.calibration_axis}."))
             return
-        print(f"Calibration data points collected for axis {self.calibration_axis}: {len(getarry)}") 
-        tol = 50
+        tol = 40
         window_size = 3
         start_Point = None
         end_Point = None
@@ -230,37 +229,35 @@ class System:
                 dif_prev = abs(curr.distant - prev.distant)
 
                 #
-                is_sustained = all(
-                abs(getarry[i + j].distant - prev.distant) > tol
-                for j in range(1, window_size + 1)
-            )
-
-                if dif_prev > tol and is_sustained:
+                matches = [abs(getarry[i + j].distant - prev.distant) > tol for j in range(1, window_size + 1)]
+            
+                if dif_prev > tol and sum(matches) >= 2:
                     start_Point = curr
                     angle = curr.x if self.calibration_axis == "x" else curr.y
                     self.event_Queue.put(Log(f"Start edge detected at angle: {angle}"))
             elif end_Point is None:
                 dif_prev = abs(curr.distant - prev.distant)
+                matches = [abs(getarry[i + j].distant - curr.distant) <= tol for j in range(1, window_size + 1)]
 
-                is_sustained = all(
-                abs(getarry[i + j].distant - curr.distant) <= tol
-                for j in range(1, window_size + 1)
-            )
+            
 
-                if dif_prev > tol and is_sustained:
+                if dif_prev > tol and sum(matches) >= 2:
                     end_Point = curr
                     angle = curr.x if self.calibration_axis == "x" else curr.y
                     self.event_Queue.put(Log(f"End edge detected at angle: {angle}"))
                     break
         # --- Validation Logic ---
         if not start_Point or not end_Point:
-            self.event_Queue.put(Log(f"Failed to find clear edges on {self.calibration_axis}. Check for obstructions."))
+            dists = [p.distant for p in getarry]
+            self.event_Queue.put(Log(f"Calibration Failed. Axis {self.calibration_axis} range: {min(dists):.1f} to {max(dists):.1f}"))
             return
         
 
         start_angle = start_Point.x if self.calibration_axis == "x" else start_Point.y
         end_angle = end_Point.x if self.calibration_axis == "x" else end_Point.y
         low_angle, high_angle = sorted([start_angle, end_angle])
+
+        print(f"Detected edges at angles: {low_angle}, {high_angle} for axis {self.calibration_axis}")
 
         if abs(high_angle - low_angle) < 1.0: # Minimum expected aperture width in degrees
             self.event_Queue.put(Log(f"Calibration error: Detected aperture on {self.calibration_axis} is too narrow."))
@@ -269,6 +266,7 @@ class System:
         self.Calibration_spike[self.calibration_axis] = [low_angle, high_angle]
 
         if self.calibration_axis == "y":
+            print(f"Calibration complete. X axis spike angles: {self.Calibration_spike['x']}, Y axis spike angles: {self.Calibration_spike['y']}")
             self.event_Queue.put(sendMinMaxResult(
                 X=self.Calibration_spike["x"],
                 Y=self.Calibration_spike["y"]
@@ -321,7 +319,7 @@ class System:
         m.set_offset(next_angle)
         self.publish_motor(self.calibration_axis)
         if self.calibration_axis == "x":
-            if next_angle == 0.0:  # Completed a full cycle
+            if next_angle <= 0.0:  # Completed a full cycle
                 self.calibration_cycle_count += 1
                 m.set_offset(self.scanRangeMas.Axis_X["uiLimit"]["max"] / 2)  # Reset to center
                 self.cal_Calibration_mode()

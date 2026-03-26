@@ -1,3 +1,4 @@
+# SmartRectangle: A custom rectangle widget that visually represents a point's state on a canvas.
 import customtkinter as ctk
 from collections.abc import Callable
 from shared.protocol import PointState

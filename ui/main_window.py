@@ -437,14 +437,11 @@ class MainWindow(ctk.CTk):
         match cmd:
             case continuous_mode(continuous_mode=a):
                 self.is_continuous_mode = a
-                self.set_scan_controls_enabled(not a)
 
             case findMinMax(axis=_, action=mode):
                 if mode == "start":
-                    self.set_scan_controls_enabled(False)
                     self.onScanStop()
                 elif mode == "stop":
-                    self.set_scan_controls_enabled(True)
                     self.onScanStart()
 
             case _:

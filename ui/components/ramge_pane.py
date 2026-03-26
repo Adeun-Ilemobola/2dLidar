@@ -235,7 +235,7 @@ class RangePane(ctk.CTkFrame):
 
    
             
-    def Disable_Range():
+    def Disable_Range(self):
         self.refresh_button.configure(state="disabled")
         self.ranging_button.configure(state="disabled")
 
@@ -254,7 +254,7 @@ class RangePane(ctk.CTkFrame):
         self.mode_badge.configure(text="DISABLED")
     
     
-    def Enable_Range():
+    def Enable_Range(self):
         self.refresh_button.configure(state="normal")
         self.ranging_button.configure(state="normal")
 
