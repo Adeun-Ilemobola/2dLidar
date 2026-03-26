@@ -499,16 +499,23 @@ class MainWindow(ctk.CTk):
                    
 
                 case CalibrationResult():
-                    if ev.success:
-                        print("Calibration successful!")
-                        self.scan_toggle.configure(text="Start Scan")
-                        self.reset_toggle.configure(text="Reset")
-                        self.calibration_toggle.configure(text="Calibrate in Progress...")
-                        self.onCalibrationStart()
-                    else:
-                        print(f"Calibration stopped: {ev.message}")
-                        self.onCalibrationStop()
-                        self.calibration_toggle.configure(text="Calibrate")
+                    match ev.status:
+                        case "started":
+                            print("UI: Locking for calibration...")
+                            self.onCalibrationStart()
+                            self.calibration_toggle.configure(text="Calibrating...", fg_color="#D21010")
+
+                        case "finished":
+                            print("UI: Calibration complete!")
+                            self.onCalibrationStop() # Unlocks all buttons
+                            self.calibration_toggle.configure(text="Start Calibration", fg_color="#1f6aa5")
+                            # Optionally show a popup
+                            tk.messagebox.showinfo("Success", ev.message)
+
+                        case "failed":
+                            print(f"UI: Calibration aborted: {ev.message}")
+                            self.onCalibrationStop()
+                            self.calibration_toggle.configure(text="Start Calibration", fg_color="#1f6aa5")
 
                         
                 case _:

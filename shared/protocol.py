@@ -77,7 +77,7 @@ class stopCalibration:
    pass
 
 
-Command = Union[EnableMotor, SetMotorAngle, SetMotorOffset, StartScan, StopScan , stopCommands , resumeCommands , callRange, setStepSize , continuous_mode , findMinMax, ScanLimits, clearZone, startCalibration]
+Command = Union[EnableMotor, SetMotorAngle, SetMotorOffset, StartScan, StopScan , stopCommands , resumeCommands , callRange, setStepSize , continuous_mode , findMinMax, ScanLimits, clearZone, startCalibration , stopCalibration]
 
 # ---------- Events (embedded -> UI) ----------
 
@@ -92,8 +92,8 @@ class MinMaxResult:
     
 @dataclass(frozen=True, slots=True)
 class sendMinMaxResult: 
-    X : [float, float]
-    Y : [float, float]
+    X : List[float]
+    Y : List[float]
  
 
 
@@ -139,10 +139,15 @@ class getRange:
     distance : float
 
 
+
+
 @dataclass(frozen=True, slots=True)
 class CalibrationResult:
     success: bool
+   
+    status: Literal["started", "processing", "finished", "failed"] 
     message: Optional[str] = None
+
 
 Event = Union[MotorState, Log, ScanProgress , PointState , ScanAreaGrid , getRange , MinMaxResult, CalibrationResult , sendMinMaxResult]
 

@@ -297,7 +297,8 @@ class System:
                 self.calibration_cycle_count = 0
                 self.event_Queue.put(CalibrationResult(
                     success=True,
-                    message=f"Calibration completed. X axis spike angles: {self.Calibration_spike['x']}, Y axis spike angles: {self.Calibration_spike['y']}."
+                    status="finished", # UI now knows to unlock buttons
+                    message="System fully calibrated and homed."
                 ))
 
             return
@@ -546,14 +547,16 @@ class System:
                 self.calibration_mode = "start"
                 self.event_Queue.put(CalibrationResult(
                     success=True,
-                    message=f"Calibration started."
-                ))
+                    status="started", 
+                    message="Calibration sequence initiated."
+                 ))
                 return
             
             case stopCalibration():
                 self.calibration_mode = "stop"
                 self.event_Queue.put(CalibrationResult(
                     success=False,
+                    status="failed",
                     message=f"Calibration stopped."
                 ))
                 return
