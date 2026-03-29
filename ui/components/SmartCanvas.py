@@ -22,6 +22,10 @@ class SmartCanvas(CTkCanvas):
         self.send_cmd = send_cmd
         self.point_states = point_states
 
+        self.MIN_ANGLE = -50.0
+        self.MAX_ANGLE = 50.0
+        self.ANGLE_STEP = 2.0
+
         self.smart_rectangles: List[List[SmartRectangle]] = []
         self.rect_map: dict[tuple[int, int], SmartRectangle] = {}
 
@@ -64,27 +68,30 @@ class SmartCanvas(CTkCanvas):
         self.resize_job = self.after(20, self.layout_rectangles)
 
     def layout_rectangles(self):
-        """Update rectangle positions for current canvas size."""
-        if not self.smart_rectangles or self.grid_cols == 0 or self.grid_rows == 0:
+       
+       """Update rectangle positions for current canvas size."""
+       if not self.smart_rectangles or self.grid_cols == 0 or self.grid_rows == 0:
             return
 
-        canvas_width = self.winfo_width() if self.winfo_width() > 5 else self.winfo_reqwidth()
-        canvas_height = self.winfo_height() if self.winfo_height() > 5 else self.winfo_reqheight()
+       canvas_width = self.winfo_width() if self.winfo_width() > 5 else self.winfo_reqwidth()
+       canvas_height = self.winfo_height() if self.winfo_height() > 5 else self.winfo_reqheight()
 
-        pad = self.canvas_colors["gridPadding"]
-        gap = self.canvas_colors["cellGap"]
+       pad = self.canvas_colors["gridPadding"]
+       gap = self.canvas_colors["cellGap"]
 
-        usable_width = max(1, canvas_width - (pad * 2))
-        usable_height = max(1, canvas_height - (pad * 2))
+       usable_width = max(1, canvas_width - (pad * 2))
+       usable_height = max(1, canvas_height - (pad * 2))
 
-        cell_width = usable_width / self.grid_cols
-        cell_height = usable_height / self.grid_rows
-        inset = gap / 2
+       cell_width = usable_width / self.grid_cols
+       cell_height = usable_height / self.grid_rows
+       inset = gap / 2
 
-        for y in range(self.grid_rows):
+       for y in range(self.grid_rows):
+            
             for x in range(self.grid_cols):
                 rect = self.smart_rectangles[y][x]
-
+                
+                # Calculate centered range
                 x1 = pad + (x * cell_width) + inset
                 y1 = pad + (y * cell_height) + inset
                 x2 = pad + ((x + 1) * cell_width) - inset
@@ -93,19 +100,19 @@ class SmartCanvas(CTkCanvas):
                 rect.setCoords(x1, y1, x2, y2)
 
     def create_smart_rectangles(self):
-        """Create grid rectangles once."""
-        if not self.point_states:
+       if not self.grid_cols or not self.grid_rows:
             return
+       
 
-        self.smart_rectangles.clear()
-        self.rect_map.clear()
+       self.smart_rectangles.clear()
+       self.rect_map.clear()
 
-        for y in range(self.grid_rows):
+       for y in range(self.grid_rows):
             row_rectangles: List[SmartRectangle] = []
-
             for x in range(self.grid_cols):
-                state = PointState(x, y, -1)
-
+               
+                state = PointState(x, y, -1) 
+                
                 rect = SmartRectangle(
                     self,
                     state,
@@ -113,32 +120,30 @@ class SmartCanvas(CTkCanvas):
                     hover=self.Hover,
                     unhover=self.Unhover,
                     on_select=self.on_select_point,
-                    x1=0,
-                    y1=0,
-                    x2=10,
-                    y2=10,
+                    x1=0, y1=0, x2=10, y2=10,
                 )
-
                 row_rectangles.append(rect)
                 self.rect_map[(x, y)] = rect
-
             self.smart_rectangles.append(row_rectangles)
 
-        self.after_idle(self.layout_rectangles)
+       self.after_idle(self.layout_rectangles)
 
     # Grid helpers ------------------------------------------
 
     def recompute_grid_dims(self):
-        steps = int(round(self.MAX_ANGLE / self.ANGLE_STEP))
+        total_range = self.MAX_ANGLE - self.MIN_ANGLE
+        steps = int(round(total_range / self.ANGLE_STEP))
         self.grid_cols = steps + 1
         self.grid_rows = steps + 1
 
     def angle_to_index(self, angle: float, max_index: int) -> int:
-        idx = int(round(angle / self.ANGLE_STEP))
+       # Shift angle by the minimum to normalize to a 0-start range
+        normalized_angle = angle - self.MIN_ANGLE
+        idx = int(round(normalized_angle / self.ANGLE_STEP))
         return max(0, min(idx, max_index))
 
     def index_to_angle(self, idx: int) -> float:
-        return idx * self.ANGLE_STEP
+        return self.MIN_ANGLE + (idx * self.ANGLE_STEP)
 
     def get_rectangle_by_coordinates(self, x: int, y: int) -> SmartRectangle | None:
         return self.rect_map.get((x, y))

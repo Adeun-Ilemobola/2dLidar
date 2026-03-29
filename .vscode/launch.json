@@ -5,11 +5,11 @@
             "name": "Python: Main Project",
             "type": "debugpy",
             "request": "launch",
-            "program": "/home/admin/projects/2dLidar/main.py", // Lock it to main.py
+            "program": "${workspaceFolder}/main.py", // Fixed this line
             "console": "integratedTerminal",
             "env": {
                 "DISPLAY": ":1.0",
-                "PYTHONPATH": "${workspaceFolder}" // Tells Python to look in the root folder
+                "PYTHONPATH": "${workspaceFolder}" 
             }
         }
     ]
