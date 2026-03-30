@@ -22,7 +22,11 @@ class scanRange:
         "startMax":23.0,
         "uiLimit":{
             "min": 0,
-            "max": 180
+            "max": 175
+        },
+        "systemLimit":{
+            "min": -45.0,
+            "max": 45.0 
         }
     }
     Axis_Y = {
@@ -34,6 +38,10 @@ class scanRange:
         "uiLimit":{
             "min": 0,
             "max": 175
+        },
+        "systemLimit":{
+            "min": -37.0,
+            "max": 40.0
         }
     }
 

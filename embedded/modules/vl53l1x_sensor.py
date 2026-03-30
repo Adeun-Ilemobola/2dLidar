@@ -19,7 +19,7 @@ class VL53L1XConfig:
     i2c_address: int = 0x29
 
     # Sensor tuning
-    distance_mode: int = 1        # 1 = short, 2 = long
+    distance_mode: int = 2       # 1 = short, 2 = long
     timing_budget_ms: int = 33      # try 20 or 33 first
     roi_xy: tuple[int, int] = (12, 12) # (width, height) in pixels, max 16x16
 
