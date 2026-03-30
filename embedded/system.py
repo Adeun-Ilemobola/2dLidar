@@ -391,67 +391,56 @@ class System:
                   
                
         
+def scan_mode(self):
+    if not self.is_scanning:
+        return
 
+    dist_val = self.pump_lidar()
+    if dist_val is None:
+        return
 
+    self.samples_point.append(PointState(
+        x=self.scan_x,
+        y=self.scan_y,
+        distant=dist_val
+    ))
 
+    next_x = self.scan_x + (self.step_size * self.scan_direction)
 
-    def scan_mode(self):
-        if self.is_scanning and not self.motors["x"].testMode and not self.motors["y"].testMode:
-           
+    hit_right = next_x >= self.limit_scam["X"]["max"]
+    hit_left = next_x <= self.limit_scam["X"]["min"]
 
-            dist_val = self.pump_lidar()
-            if dist_val is None:
-                return
+    if hit_right or hit_left:
+        # clamp X to the edge before switching row
+        self.scan_x = self.limit_scam["X"]["max"] if hit_right else self.limit_scam["X"]["min"]
+        self.scan_y += self.step_size
+        self.scan_direction *= -1
+    else:
+        self.scan_x = next_x
 
-            # Current motor angles
-            self.samples_point.append(PointState(
-            x=self.scan_x,
-            y=self.scan_y,
-            distant=dist_val
-        ))
-
-            # Calculate next X
-            next_x = self.scan_x + (self.step_size * self.scan_direction)
-
-            hit_right = next_x >= self.limit_scam["X"]["max"]
-            hit_left = next_x <= self.limit_scam["X"]["min"]
-
-            if hit_right or hit_left:
-                self.scan_y += self.step_size
-                self.scan_direction *= -1
-
-                # Clamp X to the edge
-                # self.scan_x = self.limit_scam["X"]["max"] if hit_right else self.limit_scam["X"]["min"]
-            else:
-                self.scan_x = next_x
-
-            # Progress update
-            self.event_Queue.put(
-                ScanProgress(
-                    current=time.perf_counter() - self.scan_start_time,
-                    total=self.scanRangeMas.avg_scan_time,
-                    start=True,
-                )
-            )
-
-            # Check Y completion (use >= to avoid float/step mismatch issues)
-            if self.scan_y >= self.limit_scam["Y"]["max"]:
-                elapsed = time.perf_counter() - self.scan_start_time
-                self.is_scanning = False
-                self.send_grid()
-                self.event_Queue.put(Log(f"Scan Complete. Elapsed time: {elapsed:.2f}s"))
-                return
-
-            # Move motors to next scan position
-            self.motors["x"].set_angle(self.scan_x)
-            self.motors["y"].set_angle(self.scan_y)
-
-            self.event_Queue.put(ScanProgress(
+    self.event_Queue.put(
+        ScanProgress(
             current=time.perf_counter() - self.scan_start_time,
             total=self.scanRangeMas.avg_scan_time,
-            start=True
-        ))
+            start=True,
+        )
+    )
 
+    if self.scan_y >= self.limit_scam["Y"]["max"]:
+        elapsed = time.perf_counter() - self.scan_start_time
+        self.is_scanning = False
+        self.send_grid()
+        self.event_Queue.put(Log(f"Scan Complete. Elapsed time: {elapsed:.2f}s"))
+        return
+
+    self.motors["x"].set_angle(self.scan_x)
+    self.motors["y"].set_angle(self.scan_y)
+    self.publish_motor("x")
+    self.publish_motor("y")
+
+
+
+ 
     def publish_motor(self, axis: str) -> None:
         m = self.motors[axis]
         self.event_Queue.put(
