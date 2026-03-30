@@ -346,7 +346,7 @@ class System:
 
                 self.event_Queue.put(CalibrationResult(
                     success=True,
-                    status="success",
+                    status="finished",
                     message=f"Calibration completed for axis {self.calibration_axis}."
                 ))
      

@@ -173,7 +173,21 @@ class SmartCanvas(CTkCanvas):
             rect.auto_color()
 
     # Selection ---------------------------------------------
-
+    def update_grid_range(self, x_range: tuple[float, float], y_range: tuple[float, float], step: float):
+        """Update the canvas grid to match the calibrated scan volume."""
+        # Use the wider of the two ranges to keep the grid square, or use specific limits
+        self.MIN_ANGLE = min(x_range[0], y_range[0])
+        self.MAX_ANGLE = max(x_range[1], y_range[1])
+        self.ANGLE_STEP = step
+        
+        # Clear existing visual blocks
+        for row in self.smart_rectangles:
+            for rect in row:
+                self.delete(rect.id)
+        
+        # Re-build the grid for the new 'Scan Volume'
+        self.recompute_grid_dims()
+        self.create_smart_rectangles()
     def sendNewScanRange(self):
         if self.point_1 is None or self.point_2 is None:
             return None

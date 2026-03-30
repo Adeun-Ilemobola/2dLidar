@@ -503,6 +503,8 @@ class MainWindow(ctk.CTk):
                     self.Change_scan_RangeY(Ymin, Ymax)
                     self.motorX.changLimit(min=Xmin, max=Xmax)
                     self.motorY.changLimit(min=Ymin, max=Ymax)
+
+                    self.smart_canvas.update_grid_range((Xmin, Xmax), (Ymin, Ymax), 1)
                    
 
                 case CalibrationResult():
