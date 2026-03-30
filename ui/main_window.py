@@ -496,6 +496,8 @@ class MainWindow(ctk.CTk):
                     data = ev                    
                     self.Change_scan_RangeX(data.X[1], data.X[0])
                     self.Change_scan_RangeY(data.Y[1], data.Y[0])
+                    self.motorX.changLimit(min=data.X[0], max=data.X[1])
+                    self.motorY.changLimit(min=data.Y[0], max=data.Y[1])
                    
 
                 case CalibrationResult():

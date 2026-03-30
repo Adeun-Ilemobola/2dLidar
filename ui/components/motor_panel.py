@@ -417,7 +417,14 @@ class MotorPanel(ctk.CTkFrame):
         # Restore default surface + primary button look
         self.configure(fg_color=("#F2F3F5", "#14161A"))
         self.send_button.configure(fg_color=("#1F6AA5", "#1F6AA5"), hover_color=("#195A8D", "#195A8D"))
+        
+        
+    def changLimit(self, min :float, max: float,):
+        range_min_max = (min, max)
+        self.max_min = range_min_max
+        self.slider.configure(from_=self.max_min[1], to=self.max_min[0])
 
+        self.updateSliderEnds()
     @staticmethod
     def read_float(text: str, default: float) -> float:
         try:

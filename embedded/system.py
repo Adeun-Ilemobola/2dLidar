@@ -212,8 +212,7 @@ class System:
             self.event_Queue.put(Log(f"No data collected for calibration on axis {self.calibration_axis}."))
             return
         
-        tol = 50  # Minimum distance change to consider as an edge, in cm
-        window_size = 3 # Number of consecutive points to confirm an edge (to filter noise)
+        tol = 40  # Minimum distance change to consider as an edge, in cm
         start_Point = None # the point where we first detect a significant increase in distance (start of aperture)
         end_Point = None # the point where we first detect a significant decrease in distance (end of aperture)
              
@@ -254,15 +253,16 @@ class System:
         end_angle = end_Point.x if self.calibration_axis == "x" else end_Point.y
         low_angle, high_angle = sorted([start_angle, end_angle])
         
-        self.calibration_results[self.calibration_axis].append([low_angle, high_angle])
-        self.calibration_spike[self.calibration_axis] = [low_angle, high_angle]
-
-        print(f"Detected edges at angles: {low_angle}, {high_angle} for axis {self.calibration_axis}")
+       
 
         if abs(high_angle - low_angle) < 1.0: # Minimum expected aperture width in degrees
             self.event_Queue.put(Log(f"Calibration error: Detected aperture on {self.calibration_axis} is too narrow."))
             return
         
+        self.calibration_results[self.calibration_axis].append([low_angle, high_angle])
+        self.calibration_spike[self.calibration_axis] = [low_angle, high_angle]
+
+        print(f"Detected edges at angles: {low_angle}, {high_angle} for axis {self.calibration_axis}")
 
        
 
@@ -281,6 +281,12 @@ class System:
             results = self.calibration_results[self.calibration_axis]
             if not results:
                 # fail axis and stop
+                self.event_Queue.put(Log(f"Calibration failed for axis {self.calibration_axis}. No valid edges detected."))
+                self.event_Queue.put(CalibrationResult(
+                    success=False,
+                    status="failed",
+                    message=f"Calibration failed for axis {self.calibration_axis}. No valid edges detected."
+                ))
                 return
             
             avg_low = sum(r[0] for r in results) / len(results)
@@ -288,8 +294,10 @@ class System:
             self.calibration_spike[self.calibration_axis] = [avg_low, avg_high]
             midpoint = (avg_low + avg_high) / 2
             print(
+                f"-----------------------{self.calibration_axis}-----------------------\n"
                 f"Calibration cycle {self.calibration_cycle_count} complete for axis {self.calibration_axis}. "
-                f"Avg edges at: {avg_low:.2f}, {avg_high:.2f}. Midpoint: {midpoint:.2f}"
+                f"Avg edges at: {avg_low:.2f}, {avg_high:.2f}. Midpoint: {midpoint:.2f}",
+                "--------------------------------------------------------------------------"
             )
             
             
@@ -299,7 +307,9 @@ class System:
                 self.calibration_axis = "y"
                 self.motors["y"].set_offset(0)  # Start Y at 0 to find the aperture
                 self.calibration_mode = "start"
-            else:
+                
+                
+            elif self.calibration_axis == "y":
                 self.motors["y"].set_offset(midpoint)
                 self.calibration_mode = "stop"
                 self.calibration_cycle_count = 0
@@ -552,7 +562,7 @@ class System:
                     "x": [0.0, 0.0],
                     "y": [0.0, 0.0],
                 }
-                 self.calibration_results = {
+                self.calibration_results = {
                     "x": [],
                     "y": []
                 }
