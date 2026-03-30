@@ -22,8 +22,8 @@ class SmartCanvas(CTkCanvas):
         self.send_cmd = send_cmd
         self.point_states = point_states
 
-        self.MIN_ANGLE = -50.0
-        self.MAX_ANGLE = 50.0
+        self.MIN_ANGLE = -30.0
+        self.MAX_ANGLE = 30.0
         self.ANGLE_STEP = 1
 
         self.smart_rectangles: List[List[SmartRectangle]] = []
@@ -47,7 +47,7 @@ class SmartCanvas(CTkCanvas):
             bd=0,
         )
 
-        self.MAX_ANGLE = 100
+        self.MAX_ANGLE = 60
         self.ANGLE_STEP = 1
         self.resize_job = None
 
