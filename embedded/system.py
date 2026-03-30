@@ -339,6 +339,9 @@ class System:
                     status="finished",
                     message=f"Calibration completed for axis {self.calibration_axis}."
                 ))
+                print("Y edges:", self.calibration_spike["y"])
+                print("Y midpoint:", midpoint)
+                print("Y motor offset:", self.motors["y"].get_offset())
                 print(
                     f"--------------------------------------------------------------------------\n"
                     f"Calibration completed  Results:\n"
