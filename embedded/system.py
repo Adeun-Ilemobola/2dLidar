@@ -75,6 +75,7 @@ class System:
                 "max": self.scanRangeMas.Axis_Y["systemLimit"]["max"]
             }
         }
+        self.Y_FLAT = self.scanRangeMas.Axis_Y["uiLimit"]["max"] / 2
 
         # Scan state
         self.Rangging =  self.pump_lidar()
@@ -312,8 +313,10 @@ class System:
                 
             elif self.calibration_axis == "y":
                 y_low, y_high = self.calibration_spike["y"]
-                y_midpoint = (y_low + y_high) / 2
-                self.motors["y"].set_offset(y_midpoint) 
+                self.motors["y"].set_offset(self.Y_FLAT)  # Set Y to flat position after calibration
+                self.motors["y"].set_angle(0)  # Set Y to flat position after calibration
+                self.motors["x"].set_angle(0)  # Set X to flat position after calibration
+
                 # -------------------------------------------------------------
 
                 self.calibration_mode = "stop"
@@ -327,11 +330,22 @@ class System:
                 y_offset = self.motors["y"].get_offset()
                 self.limit_scam["Y"]["min"] = y_low - y_offset
                 self.limit_scam["Y"]["max"] = y_high - y_offset
+
+
+
+                self.publish_motor("x")
+                self.publish_motor("y")
                 
                 # Notify UI of the new "Plus/Minus" range
                 self.event_Queue.put(sendMinMaxResult(
                     X=self.limit_scam["X"],
                     Y=self.limit_scam["Y"],
+                ))
+
+                self.event_Queue.put(CalibrationResult(
+                    success=True,
+                    status="success",
+                    message=f"Calibration completed for axis {self.calibration_axis}."
                 ))
      
 
