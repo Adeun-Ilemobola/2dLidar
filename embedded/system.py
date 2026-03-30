@@ -228,7 +228,7 @@ class System:
                 if dif_prev > tol :
                     start_Point = prev
                     angle = prev.x if self.calibration_axis == "x" else prev.y
-                    self.event_Queue.put(Log(f"Start edge detected at angle: {angle}"))
+                    # self.event_Queue.put(Log(f"Start edge detected at angle: {angle}"))
                     continue  # Look for end point after finding start
                 
                 
@@ -239,7 +239,7 @@ class System:
                 if -dif_prev > tol :
                     end_Point = curr
                     angle = curr.x if self.calibration_axis == "x" else curr.y
-                    self.event_Queue.put(Log(f"End edge detected at angle: {angle}"))
+                    # self.event_Queue.put(Log(f"End edge detected at angle: {angle}"))
                     break
                 
                 
@@ -264,7 +264,7 @@ class System:
         self.calibration_results[self.calibration_axis].append([low_angle, high_angle])
         self.calibration_spike[self.calibration_axis] = [low_angle, high_angle]
 
-        print(f"Detected edges at angles: {low_angle}, {high_angle} for axis {self.calibration_axis}")
+        # print(f"Detected edges at angles: {low_angle}, {high_angle} for axis {self.calibration_axis}")
 
        
 
@@ -341,9 +341,9 @@ class System:
                 ))
                 print(
                     f"--------------------------------------------------------------------------\n"
-                    f"Calibration completed. "
-                    f"X edges: {self.calibration_spike['x'][0]:.2f}, {self.calibration_spike['x'][1]:.2f}. "
-                    f"Y edges: {self.calibration_spike['y'][0]:.2f}, {self.calibration_spike['y'][1]:.2f}. "
+                    f"Calibration completed  Results:\n"
+                    f"X edges: {self.calibration_spike['x'][0]:.2f}, {self.calibration_spike['x'][1]:.2f}.\n"
+                    f"Y edges: {self.calibration_spike['y'][0]:.2f}, {self.calibration_spike['y'][1]:.2f}.\n"
                     f"Y midpoint: {midpoint:.2f}, Y limits: {self.limit_scam['Y']['min']:.2f} to {self.limit_scam['Y']['max']:.2f}"
                     f"\n--------------------------------------------------------------------------"
                 )
