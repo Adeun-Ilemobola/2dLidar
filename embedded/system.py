@@ -295,14 +295,7 @@ class System:
             avg_high = sum(r[1] for r in results) / len(results)
             self.calibration_spike[self.calibration_axis] = [avg_low, avg_high]
             midpoint = (avg_low + avg_high) / 2
-            print(
-                f"-----------------------{self.calibration_axis}-----------------------\n"
-                f"Calibration cycle {self.calibration_cycle_count} complete for axis {self.calibration_axis}. "
-                f"Avg edges at: {avg_low:.2f}, {avg_high:.2f}. Midpoint: {midpoint:.2f}",
-                "--------------------------------------------------------------------------"
-            )
-            
-            
+          
             
             if self.calibration_axis == "x":
                 self.motors["x"].set_offset(midpoint)   
@@ -312,7 +305,7 @@ class System:
                 
                 
             elif self.calibration_axis == "y":
-                y_low, y_high = self.calibration_spike["y"]
+                
                 self.motors["y"].set_offset(self.Y_FLAT)  # Set Y to flat position after calibration
                 self.motors["y"].set_angle(0)  # Set Y to flat position after calibration
                 self.motors["x"].set_angle(0)  # Set X to flat position after calibration
@@ -328,8 +321,8 @@ class System:
                 self.limit_scam["X"]["max"] = self.calibration_spike["x"][1] - x_offset
 
                 y_offset = self.motors["y"].get_offset()
-                self.limit_scam["Y"]["min"] = y_low - y_offset
-                self.limit_scam["Y"]["max"] = y_high - y_offset
+                self.limit_scam["Y"]["min"] = self.calibration_spike["y"][0] - y_offset
+                self.limit_scam["Y"]["max"] = self.calibration_spike["y"][1] - y_offset
 
 
 
@@ -349,6 +342,12 @@ class System:
                     status="finished",
                     message=f"Calibration completed for axis {self.calibration_axis}."
                 ))
+                print(
+                    f"----------------------------------------------\n"
+                    f"Calibration completed for axis X. Final edges at: {self.calibration_spike['x'][0]:.2f}, {self.calibration_spike['x'][1]:.2f}. "
+                    f"Y edges at: {self.calibration_spike['y'][0]:.2f}, {self.calibration_spike['y'][1]:.2f}",
+                    "--------------------------------------------------------------------------"
+                )
      
 
             return
