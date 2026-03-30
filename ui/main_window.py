@@ -502,6 +502,10 @@ class MainWindow(ctk.CTk):
                     self.s_range.update_range(ev.distance)
 
                 case ScanAreaGrid():
+                    print("Updating grid...")
+                    print(
+                        f"Received grid with {len(ev.points)} points. Sample point: {ev.points[len(ev.points)//2]}"
+                    )
                     self.smart_canvas.Update_point_grid(ev.points)
 
                 case sendMinMaxResult():
