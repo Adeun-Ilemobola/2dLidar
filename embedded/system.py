@@ -318,8 +318,8 @@ class System:
                 self.limit_scam["X"]["max"] = self.calibration_spike["x"][1] - x_offset
 
                 y_offset = self.motors["y"].get_offset()
-                self.limit_scam["Y"]["min"] = self.calibration_spike["y"][0] - y_offset
-                self.limit_scam["Y"]["max"] = self.calibration_spike["y"][1] - y_offset
+                self.limit_scam["Y"]["min"] = self.calibration_spike["y"][0] - self.Y_FLAT
+                self.limit_scam["Y"]["max"] = self.calibration_spike["y"][1] - self.Y_FLAT
 
 
 

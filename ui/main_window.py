@@ -344,11 +344,11 @@ class MainWindow(ctk.CTk):
     
     def Change_scan_RangeX(self, max , min) -> None:
         self.scan_x_value.configure(
-            text=f'{min} - {max}'
+            text=f'{min:.2f} -   {max:.2f}'
         )
     def Change_scan_RangeY(self, max , min) -> None:
         self.scan_y_value.configure(
-            text=f'{min} - {max}'
+            text=f'{min:.2f} -   {max:.2f}'
         )
     def clear_canvas(self) -> None:
         self.smart_canvas.clear()
