@@ -103,6 +103,10 @@ class System:
             "x":[0.0, 0.0],
             "y":[0.0, 0.0]
         }
+        self.calibration_results = {
+            "x": [],
+            "y": []
+        }
     
         self.calibration_max_cycle = 5
         self.calibration_cycle_count = 0
@@ -249,6 +253,9 @@ class System:
         start_angle = start_Point.x if self.calibration_axis == "x" else start_Point.y
         end_angle = end_Point.x if self.calibration_axis == "x" else end_Point.y
         low_angle, high_angle = sorted([start_angle, end_angle])
+        
+        self.calibration_results[self.calibration_axis].append([low_angle, high_angle])
+        self.calibration_spike[self.calibration_axis] = [low_angle, high_angle]
 
         print(f"Detected edges at angles: {low_angle}, {high_angle} for axis {self.calibration_axis}")
 
@@ -256,14 +263,8 @@ class System:
             self.event_Queue.put(Log(f"Calibration error: Detected aperture on {self.calibration_axis} is too narrow."))
             return
         
-        self.calibration_spike[self.calibration_axis] = [low_angle, high_angle]
 
-        if self.calibration_axis == "y":
-            print(f"Calibration complete. X axis spike angles: {self.calibration_spike['x']}, Y axis spike angles: {self.calibration_spike['y']}")
-            self.event_Queue.put(sendMinMaxResult(
-                X=self.calibration_spike["x"],
-                Y=self.calibration_spike["y"]
-            ))
+       
 
 
 
@@ -276,23 +277,29 @@ class System:
             msg = " next is Y axis" if self.calibration_axis == "x" else "All done!"
             self.event_Queue.put(
             Log(f"Calibration completed for axis {self.calibration_axis}.{msg}")
-)
+            )
+            results = self.calibration_results[self.calibration_axis]
+            if not results:
+                # fail axis and stop
+                return
+            
+            avg_low = sum(r[0] for r in results) / len(results)
+            avg_high = sum(r[1] for r in results) / len(results)
+            self.calibration_spike[self.calibration_axis] = [avg_low, avg_high]
+            midpoint = (avg_low + avg_high) / 2
+            print(
+                f"Calibration cycle {self.calibration_cycle_count} complete for axis {self.calibration_axis}. "
+                f"Avg edges at: {avg_low:.2f}, {avg_high:.2f}. Midpoint: {midpoint:.2f}"
+            )
+            
+            
+            
             if self.calibration_axis == "x":
-                midpoint = (self.calibration_spike["x"][0] + self.calibration_spike["x"][1]) / 2
-                print(
-                    f"Setting X axis offset to midpoint: {midpoint} based ",
-                    f"on detected edges at {self.calibration_spike['x']}"
-                )
                 self.motors["x"].set_offset(midpoint)   
                 self.calibration_axis = "y"
                 self.motors["y"].set_offset(0)  # Start Y at 0 to find the aperture
                 self.calibration_mode = "start"
             else:
-                midpoint = (self.calibration_spike["y"][0] + self.calibration_spike["y"][1]) / 2
-                print(
-                    f"Setting Y axis offset to midpoint: {midpoint} based ",
-                    f"on detected edges at {self.calibration_spike['y']}"
-                )
                 self.motors["y"].set_offset(midpoint)
                 self.calibration_mode = "stop"
                 self.calibration_cycle_count = 0
@@ -300,6 +307,14 @@ class System:
                     success=True,
                     status="finished", # UI now knows to unlock buttons
                     message="System fully calibrated and homed."
+                ))
+                
+                
+                 
+                print(f"Calibration complete. X axis spike angles: {self.calibration_spike['x']}, Y axis spike angles: {self.calibration_spike['y']}")
+                self.event_Queue.put(sendMinMaxResult(
+                    X=self.calibration_spike["x"],
+                    Y=self.calibration_spike["y"]
                 ))
 
             return
@@ -537,7 +552,12 @@ class System:
                     "x": [0.0, 0.0],
                     "y": [0.0, 0.0],
                 }
+                 self.calibration_results = {
+                    "x": [],
+                    "y": []
+                }
                 self.calibration_cycle_count = 0
+                
                 self.calibration_mode = "start"
 
                 self.event_Queue.put(CalibrationResult(
