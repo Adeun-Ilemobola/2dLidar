@@ -24,7 +24,7 @@ class SmartCanvas(CTkCanvas):
 
         self.MIN_ANGLE = -50.0
         self.MAX_ANGLE = 50.0
-        self.ANGLE_STEP = 2.0
+        self.ANGLE_STEP = 1
 
         self.smart_rectangles: List[List[SmartRectangle]] = []
         self.rect_map: dict[tuple[int, int], SmartRectangle] = {}
@@ -48,7 +48,7 @@ class SmartCanvas(CTkCanvas):
         )
 
         self.MAX_ANGLE = 100
-        self.ANGLE_STEP = 2
+        self.ANGLE_STEP = 1
         self.resize_job = None
 
         self.recompute_grid_dims()

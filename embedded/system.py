@@ -62,7 +62,7 @@ class System:
         self.getRamge = False  #
 
         # Scan config
-        self.step_size = 2.0  # degrees
+        self.step_size = 1  # degrees
         self.scan_range_x = self.scanRangeMas.Axis_X["systemLimit"]
         self.scan_range_y = self.scanRangeMas.Axis_Y["systemLimit"]
         self.limit_scam = {
@@ -311,22 +311,29 @@ class System:
                 
                 
             elif self.calibration_axis == "y":
-                self.motors["y"].set_offset(self.scanRangeMas.Axis_Y["uiLimit"]["max"] / 2)  # Center Y after calibration
+                y_low, y_high = self.calibration_spike["y"]
+                y_midpoint = (y_low + y_high) / 2
+                self.motors["y"].set_offset(y_midpoint) 
+                # -------------------------------------------------------------
+
                 self.calibration_mode = "stop"
                 self.calibration_cycle_count = 0
-                self.event_Queue.put(CalibrationResult(
-                    success=True,
-                    status="finished", # UI now knows to unlock buttons
-                    message="System fully calibrated and homed."
-                ))
                 
+              
+                x_offset = self.motors["x"].get_offset()
+                self.limit_scam["X"]["min"] = self.calibration_spike["x"][0] - x_offset
+                self.limit_scam["X"]["max"] = self.calibration_spike["x"][1] - x_offset
+
+                y_offset = self.motors["y"].get_offset()
+                self.limit_scam["Y"]["min"] = y_low - y_offset
+                self.limit_scam["Y"]["max"] = y_high - y_offset
                 
-                 
-                print(f"Calibration complete. X axis spike angles: {self.calibration_spike['x']}, Y axis spike angles: {self.calibration_spike['y']}")
+                # Notify UI of the new "Plus/Minus" range
                 self.event_Queue.put(sendMinMaxResult(
-                    X=self.calibration_spike["x"],
-                    Y=self.calibration_spike["y"]
+                    X=self.limit_scam["X"],
+                    Y=self.limit_scam["Y"],
                 ))
+     
 
             return
 
@@ -373,20 +380,15 @@ class System:
            
 
             dist_val = self.pump_lidar()
-           
             if dist_val is None:
                 return
 
             # Current motor angles
-            current_x = self.motors["x"].get_angle()
-            current_y = self.motors["y"].get_angle()
-
-            # Store point in current row
             self.samples_point.append(PointState(
-                x=current_x,
-                y=current_y,
-                distant=dist_val
-            ))
+            x=self.scan_x,
+            y=self.scan_y,
+            distant=dist_val
+        ))
 
             # Calculate next X
             next_x = self.scan_x + (self.step_size * self.scan_direction)
@@ -395,18 +397,11 @@ class System:
             hit_left = next_x <= self.limit_scam["X"]["min"]
 
             if hit_right or hit_left:
-                # Finish the current row before moving Y
-                if self.samples_point:
-                    # self.point_grid.append(self.samples_point)
-                    # self.samples_point = []
-                    pass
-
-                # Move Y
                 self.scan_y += self.step_size
                 self.scan_direction *= -1
 
                 # Clamp X to the edge
-                self.scan_x = self.limit_scam["X"]["max"] if hit_right else self.limit_scam["X"]["min"]
+                # self.scan_x = self.limit_scam["X"]["max"] if hit_right else self.limit_scam["X"]["min"]
             else:
                 self.scan_x = next_x
 
@@ -421,11 +416,6 @@ class System:
 
             # Check Y completion (use >= to avoid float/step mismatch issues)
             if self.scan_y >= self.limit_scam["Y"]["max"]:
-                # If final row has points (edge cases), append it
-                # if self.samples_point:
-                #     self.point_grid.append(self.samples_point)
-                #     self.samples_point = []
-
                 elapsed = time.perf_counter() - self.scan_start_time
                 self.is_scanning = False
                 self.send_grid()
@@ -435,6 +425,12 @@ class System:
             # Move motors to next scan position
             self.motors["x"].set_angle(self.scan_x)
             self.motors["y"].set_angle(self.scan_y)
+
+            self.event_Queue.put(ScanProgress(
+            current=time.perf_counter() - self.scan_start_time,
+            total=self.scanRangeMas.avg_scan_time,
+            start=True
+        ))
 
     def publish_motor(self, axis: str) -> None:
         m = self.motors[axis]
@@ -455,14 +451,11 @@ class System:
         self.point_grid = []
 
         # Reinitialize for next scan
-        self.scan_x =  self.scan_range_x["min"]
-        self.scan_y =  self.scan_range_y["min"]
-        self.scan_start_time = None
-        self.timer_av = False
-        self.scan_direction = 1
-
-        self.motors["x"].set_angle(self.scan_range_x["min"])  # your original behavior
-        self.motors["y"].set_angle(self.scan_range_y["min"])  # your original behavior
+        self.scan_x = self.limit_scam["X"]["min"]
+        self.scan_y = self.limit_scam["Y"]["min"]
+        
+        self.motors["x"].set_angle(self.scan_x)
+        self.motors["y"].set_angle(self.scan_y)
         self.publish_motor("x")
         self.publish_motor("y")
 
@@ -494,11 +487,19 @@ class System:
                 self.is_continuous_mode = False
                 self.test_MinMax = "stop"
 
-                # Reset scan state
+
                 self.is_scanning = True
-                self.scan_x = self.scan_range_x["min"]
-                self.scan_y = self.scan_range_y["min"]
+                self.scan_x = self.limit_scam["X"]["min"] 
+                self.scan_y = self.limit_scam["Y"]["min"]
                 self.scan_direction = 1
+                
+                # Move to start position immediately
+                self.motors["x"].set_angle(self.scan_x)
+                self.motors["y"].set_angle(self.scan_y)
+                self.publish_motor("x")
+                self.publish_motor("y")
+
+              
                 self.samples_point = []
                 self.point_grid = []
                 self.scan_start_time = None
