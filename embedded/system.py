@@ -136,8 +136,17 @@ class System:
 
 
 
+    
     def tick(self) -> None:
-        self.lidar.tick()
+        try:
+            self.lidar.tick()
+        except OSError as e:
+            self.event_Queue.put(Log(f"VL53L1X tick error: {e}"))
+            try:
+                self.lidar.reset()
+            except Exception:
+                pass
+            return
 
         self.Calibration_mode()
 
@@ -160,7 +169,6 @@ class System:
             self.one_shot_range_mode()
 
 
-
     def handle_continuous_mode(self) -> None:
        
         reading = self.pump_lidar()
@@ -179,17 +187,27 @@ class System:
             
             
     def pump_lidar(self) -> float | None:
-        if not self.lidar.collecting and self.lidar.readyCm is None:
+
+        try:
+            if not self.lidar.collecting and self.lidar.readyCm is None:
+                self.lidar.request()
+                return None
+
+            reading = self.lidar.take_cm()
+            if reading is None:
+                return None
+
+            self.lidar.reset()
             self.lidar.request()
-            return None
+            return reading
 
-        reading = self.lidar.take_cm()
-        if reading is None:
+        except OSError as e:
+            self.event_Queue.put(Log(f"VL53L1X I2C error: {e}"))
+            try:
+                self.lidar.reset()
+            except Exception:
+                pass
             return None
-
-        self.lidar.reset()
-        self.lidar.request()
-        return reading
     
     
     def one_shot_range_mode(self) -> None:
