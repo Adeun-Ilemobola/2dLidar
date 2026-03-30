@@ -58,6 +58,8 @@ class System:
 
         # General modes
         self.is_scanning = False
+        self.scan_lidar_miss_count = 0
+        self.scan_lidar_miss_limit = 20
         self.is_continuous_mode = False
         self.getRamge = False  #
 
@@ -416,7 +418,17 @@ class System:
 
         dist_val = self.pump_lidar()
         if dist_val is None:
-            return
+            print("SCAN WAITING FOR LIDAR", self.scan_x, self.scan_y)
+            self.scan_lidar_miss_count += 1
+
+            if self.scan_lidar_miss_count < self.scan_lidar_miss_limit:
+                return
+
+            # Skip this point after too many misses
+            dist_val = -1.0
+            self.scan_lidar_miss_count = 0
+        else:
+            self.scan_lidar_miss_count = 0
 
         self.samples_point.append(PointState(
             x=self.scan_x,
