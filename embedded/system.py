@@ -218,26 +218,26 @@ class System:
             curr = points[i]
 
             if start_Point is None:
-                dif_prev = abs(curr.distant - prev.distant)
-
-                
-                matches = [abs(points[i + j].distant - prev.distant) > tol for j in range(1, window_size + 1)]
+                dif_prev = (curr.distant - prev.distant)
             
-                if dif_prev > tol and sum(matches) >= 2:
+                if dif_prev > tol :
                     start_Point = prev
                     angle = prev.x if self.calibration_axis == "x" else prev.y
                     self.event_Queue.put(Log(f"Start edge detected at angle: {angle}"))
-            elif end_Point is None:
-                dif_prev = abs(curr.distant - prev.distant)
-                matches = [abs(points[i + j].distant - curr.distant) <= tol for j in range(1, window_size + 1)]
+                    continue  # Look for end point after finding start
+                
+                
+            if  start_Point is not None and end_Point is None:
+                
+                dif_prev = (curr.distant - prev.distant)
 
-            
-
-                if dif_prev > tol and sum(matches) >= 2:
+                if -dif_prev > tol :
                     end_Point = curr
                     angle = curr.x if self.calibration_axis == "x" else curr.y
                     self.event_Queue.put(Log(f"End edge detected at angle: {angle}"))
                     break
+                
+                
         self.calibration_range[self.calibration_axis] = []  # Clear data for next calibration run
         # --- Validation Logic ---
         if not start_Point or not end_Point:
@@ -285,6 +285,7 @@ class System:
                 )
                 self.motors["x"].set_offset(midpoint)   
                 self.calibration_axis = "y"
+                self.motors["y"].set_offset(0)  # Start Y at 0 to find the aperture
                 self.calibration_mode = "start"
             else:
                 midpoint = (self.calibration_spike["y"][0] + self.calibration_spike["y"][1]) / 2
@@ -331,7 +332,7 @@ class System:
             # Check for completion
             if next_angle >= 174.0:
                 self.calibration_cycle_count += 1
-                m.set_offset(65)  # Reset to start
+                self.motors["y"].set_offset(0)  # Reset to start
                 self.cal_Calibration_mode()
                
                   
