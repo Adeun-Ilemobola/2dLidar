@@ -493,11 +493,16 @@ class MainWindow(ctk.CTk):
                     self.smart_canvas.Update_point_grid(ev.points)
 
                 case sendMinMaxResult():
-                    data = ev                    
-                    self.Change_scan_RangeX(data.X[1], data.X[0])
-                    self.Change_scan_RangeY(data.Y[1], data.Y[0])
-                    self.motorX.changLimit(min=data.X[0], max=data.X[1])
-                    self.motorY.changLimit(min=data.Y[0], max=data.Y[1])
+                    data = ev 
+                    Ymin = data.Ymin
+                    Ymax = data.Ymax
+                    Xmin = data.Xmin
+                    Xmax = data.Xmax
+                                    
+                    self.Change_scan_RangeX(Xmin, Xmax)
+                    self.Change_scan_RangeY(Ymin, Ymax)
+                    self.motorX.changLimit(min=Xmin, max=Xmax)
+                    self.motorY.changLimit(min=Ymin, max=Ymax)
                    
 
                 case CalibrationResult():

@@ -92,9 +92,10 @@ class MinMaxResult:
     
 @dataclass(frozen=True, slots=True)
 class sendMinMaxResult: 
-    X : List[float]
-    Y : List[float]
- 
+    Xmin : float
+    Xmax : float
+    Ymin : float
+    Ymax : float
 
 
 @dataclass(frozen=True, slots=True)

@@ -338,8 +338,10 @@ class System:
                 
                 # Notify UI of the new "Plus/Minus" range
                 self.event_Queue.put(sendMinMaxResult(
-                    X=self.limit_scam["X"],
-                    Y=self.limit_scam["Y"],
+                   Xmin=self.limit_scam["X"]["min"],
+                   Xmax=self.limit_scam["X"]["max"],
+                   Ymin=self.limit_scam["Y"]["min"],
+                   Ymax=self.limit_scam["Y"]["max"]
                 ))
 
                 self.event_Queue.put(CalibrationResult(
