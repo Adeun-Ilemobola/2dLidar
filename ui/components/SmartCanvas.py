@@ -156,7 +156,7 @@ class SmartCanvas(CTkCanvas):
         if rect is None:
             return
 
-        rect.state.distant = state.distant
+        rect.state = replace(rect.state, distant=state.distant)
         rect.auto_color()
 
     def Update_point_grid(self, new_embedded_points: List[PointState]):
@@ -169,7 +169,7 @@ class SmartCanvas(CTkCanvas):
             if rect is None:
                 continue
 
-            rect.state.distant = state.distant
+            rect.state = replace(rect.state, distant=state.distant)
             rect.auto_color()
 
     # Selection ---------------------------------------------
