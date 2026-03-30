@@ -213,6 +213,7 @@ class System:
             return
         
         tol = 40  # Minimum distance change to consider as an edge, in cm
+        window_size = 3  # Number of points to look back for edge detection
         start_Point = None # the point where we first detect a significant increase in distance (start of aperture)
         end_Point = None # the point where we first detect a significant decrease in distance (end of aperture)
              
@@ -310,7 +311,7 @@ class System:
                 
                 
             elif self.calibration_axis == "y":
-                self.motors["y"].set_offset(midpoint)
+                self.motors["y"].set_offset(self.scanRangeMas.Axis_Y["uiLimit"]["max"] / 2)  # Center Y after calibration
                 self.calibration_mode = "stop"
                 self.calibration_cycle_count = 0
                 self.event_Queue.put(CalibrationResult(
