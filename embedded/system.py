@@ -391,56 +391,58 @@ class System:
                   
                
         
-def scan_mode(self):
-    if not self.is_scanning:
-        return
 
-    dist_val = self.pump_lidar()
-    if dist_val is None:
-        return
+    def scan_mode(self):
+        if not self.is_scanning:
+            return
 
-    self.samples_point.append(PointState(
-        x=self.scan_x,
-        y=self.scan_y,
-        distant=dist_val
-    ))
+        dist_val = self.pump_lidar()
+        if dist_val is None:
+            return
 
-    next_x = self.scan_x + (self.step_size * self.scan_direction)
+        self.samples_point.append(PointState(
+            x=self.scan_x,
+            y=self.scan_y,
+            distant=dist_val
+        ))
 
-    hit_right = next_x >= self.limit_scam["X"]["max"]
-    hit_left = next_x <= self.limit_scam["X"]["min"]
+        next_x = self.scan_x + (self.step_size * self.scan_direction)
 
-    if hit_right or hit_left:
-        # clamp X to the edge before switching row
-        self.scan_x = self.limit_scam["X"]["max"] if hit_right else self.limit_scam["X"]["min"]
-        self.scan_y += self.step_size
-        self.scan_direction *= -1
-    else:
-        self.scan_x = next_x
+        hit_right = next_x >= self.limit_scam["X"]["max"]
+        hit_left = next_x <= self.limit_scam["X"]["min"]
 
-    self.event_Queue.put(
-        ScanProgress(
-            current=time.perf_counter() - self.scan_start_time,
-            total=self.scanRangeMas.avg_scan_time,
-            start=True,
+        if hit_right or hit_left:
+            # clamp X to the edge before switching row
+            self.scan_x = self.limit_scam["X"]["max"] if hit_right else self.limit_scam["X"]["min"]
+            self.scan_y += self.step_size
+            self.scan_direction *= -1
+        else:
+            self.scan_x = next_x
+
+        self.event_Queue.put(
+            ScanProgress(
+                current=time.perf_counter() - self.scan_start_time,
+                total=self.scanRangeMas.avg_scan_time,
+                start=True,
+            )
         )
-    )
 
-    if self.scan_y >= self.limit_scam["Y"]["max"]:
-        elapsed = time.perf_counter() - self.scan_start_time
-        self.is_scanning = False
-        self.send_grid()
-        self.event_Queue.put(Log(f"Scan Complete. Elapsed time: {elapsed:.2f}s"))
-        return
+        if self.scan_y >= self.limit_scam["Y"]["max"]:
+            elapsed = time.perf_counter() - self.scan_start_time
+            self.is_scanning = False
+            self.send_grid()
+            self.event_Queue.put(Log(f"Scan Complete. Elapsed time: {elapsed:.2f}s"))
+            return
 
-    self.motors["x"].set_angle(self.scan_x)
-    self.motors["y"].set_angle(self.scan_y)
-    self.publish_motor("x")
-    self.publish_motor("y")
-
+        self.motors["x"].set_angle(self.scan_x)
+        self.motors["y"].set_angle(self.scan_y)
+        self.publish_motor("x")
+        self.publish_motor("y")
 
 
- 
+   
+       
+
     def publish_motor(self, axis: str) -> None:
         m = self.motors[axis]
         self.event_Queue.put(
