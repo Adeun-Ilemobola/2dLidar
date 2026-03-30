@@ -310,12 +310,9 @@ class System:
                 self.motors["y"].set_angle(0)  # Set Y to flat position after calibration
                 self.motors["x"].set_angle(0)  # Set X to flat position after calibration
 
-                # -------------------------------------------------------------
-
                 self.calibration_mode = "stop"
                 self.calibration_cycle_count = 0
                 
-              
                 x_offset = self.motors["x"].get_offset()
                 self.limit_scam["X"]["min"] = self.calibration_spike["x"][0] - x_offset
                 self.limit_scam["X"]["max"] = self.calibration_spike["x"][1] - x_offset
@@ -343,10 +340,10 @@ class System:
                     message=f"Calibration completed for axis {self.calibration_axis}."
                 ))
                 print(
-                    f"----------------------------------------------\n"
+                    f"--------------------------------------------------------------------------\n"
                     f"Calibration completed for axis X. Final edges at: {self.calibration_spike['x'][0]:.2f}, {self.calibration_spike['x'][1]:.2f}. "
                     f"Y edges at: {self.calibration_spike['y'][0]:.2f}, {self.calibration_spike['y'][1]:.2f}",
-                    "--------------------------------------------------------------------------"
+                    "--------------------------------------------------------------------------\n"
                 )
      
 
