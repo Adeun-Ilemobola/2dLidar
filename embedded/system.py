@@ -306,7 +306,7 @@ class System:
                 
             elif self.calibration_axis == "y":
                 
-                self.motors["y"].set_offset(self.Y_FLAT)  # Set Y to flat position after calibration
+                self.motors["y"].set_offset(midpoint)  # Set Y to flat position after calibration
                 self.motors["y"].set_angle(0)  # Set Y to flat position after calibration
                 self.motors["x"].set_angle(0)  # Set X to flat position after calibration
 
