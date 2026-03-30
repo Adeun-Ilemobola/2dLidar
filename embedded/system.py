@@ -300,7 +300,7 @@ class System:
             if self.calibration_axis == "x":
                 self.motors["x"].set_offset(midpoint)   
                 self.calibration_axis = "y"
-                self.motors["y"].set_offset(0)  # Start Y at 0 to find the aperture
+                self.motors["y"].set_offset(midpoint)  # Start Y at midpoint to find the aperture
                 self.calibration_mode = "start"
                 
                 
