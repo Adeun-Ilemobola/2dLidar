@@ -354,11 +354,23 @@ class MainWindow(ctk.CTk):
         self.smart_canvas.clear()
 
     def enable_widget(self, on: bool) -> None:
-        state = "normal" if on else "disabled"
-        self.motorX.setDisable(state)
-        self.motorY.setDisable(state)
-        self.s_range.setDisable(state)
-        
+
+        if on:
+            self.scan_toggle.configure(state="normal", fg_color=self.panel_colors["accent"])
+            self.reset_toggle.configure(state="normal", fg_color=self.panel_colors["accent"])
+            self.calibration_toggle.configure(state="normal", fg_color=self.panel_colors["accent"])
+            self.motorX.EnablePanel()
+            self.motorY.EnablePanel()
+            self.s_range.Enable_Range()
+        else:
+            self.scan_toggle.configure(state="disabled", fg_color=self.panel_colors["disabledFill"])
+            self.reset_toggle.configure(state="disabled", fg_color=self.panel_colors["disabledFill"])
+            self.calibration_toggle.configure(state="disabled", fg_color=self.panel_colors["disabledFill"])
+            self.motorX.DisablePanel()
+            self.motorY.DisablePanel()
+            self.s_range.Disable_Range()
+       
+      
         
         
     # specific method to disable scan controls when scan starts or stops, can be called from worker or other places if needed
