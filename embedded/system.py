@@ -31,7 +31,8 @@ from shared.protocol import (
     ScanLimits,
     clearZone ,
     startCalibration,
-    stopCalibration
+    stopCalibration,
+    ResetSystem
 
 )
 from shared.time import Timer
@@ -136,7 +137,71 @@ class System:
         self.publish_motor("y")
         self.event_Queue.put(Log("System configured."))
 
+    def _default_limits(self):
+        return {
+            "X": {
+                "min": self.scanRangeMas.Axis_X["systemLimit"]["min"],
+                "max": self.scanRangeMas.Axis_X["systemLimit"]["max"],
+            },
+            "Y": {
+                "min": self.scanRangeMas.Axis_Y["systemLimit"]["min"],
+                "max": self.scanRangeMas.Axis_Y["systemLimit"]["max"],
+            },
+        }
 
+    def soft_reset(self) -> None:
+        self.is_scanning = False
+        self.is_continuous_mode = False
+        self.getRamge = False
+        self.calibration_mode = "stop"
+
+        self.prev_Rangging = None
+        self.scan_lidar_miss_count = 0
+        self.timer_av = False
+        self.scan_start_time = None
+        self.scan_direction = 1
+
+        self.samples_point.clear()
+        self.point_grid.clear()
+
+        self.calibration_axis = "x"
+        self.calibration_range = {"x": [], "y": []}
+        self.calibration_spike = {"x": [0.0, 0.0], "y": [0.0, 0.0]}
+        self.calibration_results = {"x": [], "y": []}
+        self.calibration_cycle_count = 0
+
+        self.scan_x = self.limit_scam["X"]["min"]
+        self.scan_y = self.limit_scam["Y"]["min"]
+
+        try:
+            self.lidar.reset()
+        except Exception:
+            pass
+
+        self.disamtTime.reset()
+
+        # IMPORTANT: for soft reset, keep current OFFSETS,
+        # because your calibrated limits are relative to them.
+        self.motors["x"].set_angle(0)
+        self.motors["y"].set_angle(0)
+        self.publish_motor("x")
+        self.publish_motor("y")
+
+        self.event_Queue.put(
+            ScanProgress(current=0, total=self.scanRangeMas.avg_scan_time, start=False)
+        )
+        self.event_Queue.put(Log("System soft reset."))
+
+    def factory_reset(self) -> None:
+        self.limit_scam = self._default_limits()
+        self.soft_reset()
+
+        self.motors["x"].set_offset(self.scanRangeMas.Axis_X["uiLimit"]["max"] / 2)
+        self.motors["y"].set_offset(self.scanRangeMas.Axis_Y["uiLimit"]["max"] / 2)
+        self.publish_motor("x")
+        self.publish_motor("y")
+
+        self.event_Queue.put(Log("System factory reset."))
 
     
     def tick(self) -> None:
@@ -322,6 +387,8 @@ class System:
                 self.calibration_axis = "y"
                 self.motors["y"].set_offset(midpoint)  # Start Y at midpoint to find the aperture
                 self.calibration_mode = "start"
+                self.calibration_cycle_count = 0 
+                self.calibration_results["y"] = []
                 
                 
             elif self.calibration_axis == "y":
@@ -502,6 +569,12 @@ class System:
 
     def handle(self, cmd: Command) -> None:
         match cmd:
+            case ResetSystem(factory=factory):
+                if factory:
+                    self.factory_reset()
+                else:
+                    self.soft_reset()
+                return
             case EnableMotor():
                 data = cmd
                 m = self.motors[data.axis]
@@ -526,27 +599,23 @@ class System:
             case StartScan():
                 # Stop other modes
                 self.is_continuous_mode = False
-                self.test_MinMax = "stop"
-
-
+                self.calibration_mode = "stop" 
+                self.getRamge = False
+                self.lidar.reset() 
+               
+                
+                # Reset ALL scan state variables
                 self.is_scanning = True
                 self.scan_x = self.limit_scam["X"]["min"] 
                 self.scan_y = self.limit_scam["Y"]["min"]
                 self.scan_direction = 1
-                
-                # Move to start position immediately
-                self.motors["x"].set_angle(self.scan_x)
-                self.motors["y"].set_angle(self.scan_y)
-                self.publish_motor("x")
-                self.publish_motor("y")
-
-              
+                self.scan_lidar_miss_count = 0 
                 self.samples_point = []
                 self.point_grid = []
                 self.scan_start_time = None
                 self.timer_av = False
 
-                # Move to start position
+                # Move motors to start position
                 self.motors["x"].set_angle(self.scan_x)
                 self.motors["y"].set_angle(self.scan_y)
                 self.publish_motor("x")
@@ -593,32 +662,23 @@ class System:
                 
                 self.is_scanning = False
                 self.is_continuous_mode = False
-                self.test_MinMax = "stop"
                 self.getRamge = False
-                self.prev_Rangging = None
-                self.lidar.reset()
-                self.disamtTime.reset()
-
+                
+                # Reset Calibration state fully
                 self.calibration_axis = "x"
+                self.calibration_cycle_count = 0 
                 self.calibration_range = {"x": [], "y": []}
-                self.calibration_spike = {
-                    "x": [0.0, 0.0],
-                    "y": [0.0, 0.0],
-                }
-                self.calibration_results = {
-                    "x": [],
-                    "y": []
-                }
-                self.calibration_cycle_count = 0
+                self.calibration_results = {"x": [], "y": []}
                 
                 self.calibration_mode = "start"
 
+                # Move to initial calibration position
+                self.motors["x"].set_offset(self.scanRangeMas.Axis_X["uiLimit"]["max"] / 2)
+                self.motors["y"].set_offset(0)
+                
                 self.event_Queue.put(CalibrationResult(
-                    success=True,
-                    status="started",
-                    message="Calibration sequence initiated."
+                    success=True, status="started", message="Calibration initiated."
                 ))
-                return
             
             case stopCalibration():
                 self.calibration_mode = "stop"

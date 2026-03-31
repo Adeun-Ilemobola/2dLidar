@@ -77,7 +77,12 @@ class stopCalibration:
    pass
 
 
-Command = Union[EnableMotor, SetMotorAngle, SetMotorOffset, StartScan, StopScan , stopCommands , resumeCommands , callRange, setStepSize , continuous_mode , findMinMax, ScanLimits, clearZone, startCalibration , stopCalibration]
+@dataclass(frozen=True, slots=True)
+class ResetSystem:
+    factory: bool = False
+
+
+Command = Union[EnableMotor, SetMotorAngle, SetMotorOffset, StartScan, StopScan , stopCommands , resumeCommands , callRange, setStepSize , continuous_mode , findMinMax, ScanLimits, clearZone, startCalibration , stopCalibration, ResetSystem]
 
 # ---------- Events (embedded -> UI) ----------
 

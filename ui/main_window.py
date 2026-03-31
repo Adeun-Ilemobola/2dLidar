@@ -94,6 +94,7 @@ class MainWindow(ctk.CTk):
         file_menu.add_command(label="Open MotorConfig", command=lambda: print("TODO: Open MotorConfig window"))
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.on_close)
+        file_menu.add_command( label="restart Worker", command=self.restart_worker)
         menubar.add_cascade(label="Config", menu=file_menu)
         self.config(menu=menubar)
 
@@ -462,9 +463,33 @@ class MainWindow(ctk.CTk):
 
         self.cmd_q.put(cmd)
 
-   
+    def restart_worker(self):
+        """Kills existing worker (if any) and starts a fresh one."""
+        self.send_cmd(StopScan()) 
+        
+        if hasattr(self, 'worker') and self.worker.is_alive():
+            self.worker.shutdown()
+            self.worker.join(timeout=1.0) # Wait for it to die
+        
+        # Clear the queues to prevent old commands from flooding the new system
+        while not self.cmd_q.empty():
+            try: self.cmd_q.get_nowait()
+            except: break
+            
+        self.worker = HardwareWorker(
+            self.cmd_q,
+            self.event_q,
+            scanRange_mas=self.scan_range,
+            SystemConfig_mas=self.system_config,
+        )
+        self.worker.start()
+        self.enable_widget(True) # Re-enable UI
+        tk.messagebox.showinfo("System", "Hardware Worker Restarted.")
 
     def poll_events(self) -> None:
+        if hasattr(self, 'worker') and not self.worker.is_alive() and not self.worker.stop_event.is_set():
+             self.calibration_toggle.configure(text="HARDWARE DISCONNECTED", fg_color="red")
+             return
         while True:
             try:
                 ev = self.event_q.get_nowait()
