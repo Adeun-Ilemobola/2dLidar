@@ -256,22 +256,14 @@ class System:
     def pump_lidar(self) -> float | None:
 
         try:
-            if not self.lidar.collecting and self.lidar.readyCm is None:
-                self.lidar.request()
-                return None
-
             reading = self.lidar.take_cm()
-            if reading is None:
-                return None
-
-            self.lidar.reset()
-            self.lidar.request()
             return reading
 
         except OSError as e:
             self.event_Queue.put(Log(f"VL53L1X I2C error: {e}"))
             try:
                 self.lidar.reset()
+                
             except Exception:
                 pass
             return None
@@ -387,8 +379,7 @@ class System:
                 self.calibration_axis = "y"
                 self.motors["y"].set_offset(midpoint)  # Start Y at midpoint to find the aperture
                 self.calibration_mode = "start"
-                self.calibration_cycle_count = 0 
-                self.calibration_results["y"] = []
+               
                 
                 
             elif self.calibration_axis == "y":
@@ -449,6 +440,7 @@ class System:
         rang = self.pump_lidar()
 
         if rang is not None:
+            print(f"Calibration reading - Axis: {self.calibration_axis}, Angle: {current_angle:.2f}, Distance: {rang:.1f}")
             self.calibration_range[self.calibration_axis].append(PointState(
                 x=current_angle if self.calibration_axis == "x" else 0.0,
                 y=current_angle if self.calibration_axis == "y" else 0.0,
@@ -674,7 +666,7 @@ class System:
 
                 # Move to initial calibration position
                 self.motors["x"].set_offset(self.scanRangeMas.Axis_X["uiLimit"]["max"] / 2)
-                self.motors["y"].set_offset(0)
+                self.motors["y"].set_offset(self.scanRangeMas.Axis_Y["uiLimit"]["max"] / 2)
                 
                 self.event_Queue.put(CalibrationResult(
                     success=True, status="started", message="Calibration initiated."

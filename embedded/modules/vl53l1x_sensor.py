@@ -77,16 +77,10 @@ class VL53L1XSensor:
             self.sensor = None
 
     def request(self) -> None:
-        if self.sensor is None or self.collecting:
-            return
-
-        self.collecting = True
-        self.samples = []
-        self.readyCm = None
-        self.not_ready_ticks = 0
+        pass
 
     def tick(self) -> None:
-        if self.sensor is None or not self.collecting:
+        if self.sensor is None :
             return
 
         try:
@@ -104,7 +98,6 @@ class VL53L1XSensor:
             print(f"VL53L1X read error: {e!r}")
         finally:
             # Always clear interrupt once data_ready was true,
-            # even if the reading was invalid/None.
             if hasattr(self.sensor, "clear_interrupt"):
                 try:
                     self.sensor.clear_interrupt()
@@ -120,11 +113,17 @@ class VL53L1XSensor:
             print(f"VL53L1X conversion error: raw={raw!r}, error={e!r}")
             return
 
-        if cm <= 0:
-            return
-
-        self.readyCm = cm
-        self.collecting = False
+        self.samples.append(cm)
+        if len(self.samples) > self.cfg.max_samples:
+            self.samples.pop(0)
+            
+        # Always assign readyCm! Use the filter if the buffer is full.
+        if len(self.samples) == self.cfg.max_samples:
+            self.readyCm = filter3(self.samples[0], self.samples[1], self.samples[2], self.cfg.tol_cm)
+        else:
+            self.readyCm = cm
+            
+            
                 
     def take_cm(self) -> Optional[float]:
         value = self.readyCm
