@@ -112,11 +112,14 @@ class System:
             "y": []
         }
     
-        self.calibration_max_cycle = 5
+        self.calibration_max_cycle = 2
         self.calibration_cycle_count = 0
         
         
         self.disamtTime = Timer(duration_s=0.03)  # 30ms between continuous readings
+        self.calibration_pumpTime = Timer(duration_s=0.1)  # 600ms between calibration steps
+        self.cal_valid_readings = []
+        self.cal_pump_attempts = 0
 
         self.configure_all()
 
@@ -172,6 +175,9 @@ class System:
 
         self.scan_x = self.limit_scam["X"]["min"]
         self.scan_y = self.limit_scam["Y"]["min"]
+        self.cal_valid_readings = []
+        self.cal_pump_attempts = 0
+                
 
         try:
             self.lidar.reset()
@@ -290,7 +296,7 @@ class System:
             self.event_Queue.put(Log(f"No data collected for calibration on axis {self.calibration_axis}."))
             return
         
-        tol = 40  # Minimum distance change to consider as an edge, in cm
+        tol = 50  # Minimum distance change to consider as an edge, in cm
         window_size = 3  # Number of points to look back for edge detection
         start_Point = None # the point where we first detect a significant increase in distance (start of aperture)
         end_Point = None # the point where we first detect a significant decrease in distance (end of aperture)
@@ -437,35 +443,63 @@ class System:
 
         m = self.motors[self.calibration_axis]
         current_angle = float(m.get_offset())
-        rang = self.pump_lidar()
+        
+        
+        # 1. Start the 0.6s timer if it's not running
+        if not self.calibration_pumpTime.running:
+            self.calibration_pumpTime.start()
 
-        if rang is not None:
-            print(f"Calibration reading - Axis: {self.calibration_axis}, Angle: {current_angle:.2f}, Distance: {rang:.1f}")
-            self.calibration_range[self.calibration_axis].append(PointState(
-                x=current_angle if self.calibration_axis == "x" else 0.0,
-                y=current_angle if self.calibration_axis == "y" else 0.0,
-                distant=rang
-            ))
+        # 2. Check if 0.6 seconds have passed
+        if self.calibration_pumpTime.done():
+            # Time to take a reading!
+            temp_rang = self.pump_lidar()
+            
+            if temp_rang is not None:
+                self.cal_valid_readings.append(temp_rang)
+            
+            self.cal_pump_attempts += 1
+            self.calibration_pumpTime.reset() # Resets timer so it starts again next tick
 
-        step_deg = 1.0
-        direction = -1 if self.calibration_axis == "x" else 1  # X goes negative, Y goes positive
-        next_angle = current_angle + (step_deg * direction)
+            # If we haven't hit 4 attempts yet, exit and wait for the next timer cycle
+            if self.cal_pump_attempts < 4:
+                return 
+            
+            # --- 3. We hit 4 attempts! Process the data ---
+            if len(self.cal_valid_readings) > 0:
+                rang = sum(self.cal_valid_readings) / len(self.cal_valid_readings)
+            else:
+                rang = None
 
-        m.set_offset(next_angle)
-        self.publish_motor(self.calibration_axis)
-        if self.calibration_axis == "x":
-            if next_angle <= 0.0:  # Completed a full cycle
-                self.calibration_cycle_count += 1
-                m.set_offset(self.scanRangeMas.Axis_X["uiLimit"]["max"] / 2)  # Reset to center
-                self.cal_Calibration_mode()
-               
-              
-        else:
-            # Check for completion
-            if next_angle >= 174.0:
-                self.calibration_cycle_count += 1
-                self.motors["y"].set_offset(0)  # Reset to start
-                self.cal_Calibration_mode()
+            if rang is not None:
+                print(f"Calibration reading - Axis: {self.calibration_axis}, Angle: {current_angle:.2f}, Distance: {rang:.1f}")
+                self.calibration_range[self.calibration_axis].append(PointState(
+                    x=current_angle if self.calibration_axis == "x" else 0.0,
+                    y=current_angle if self.calibration_axis == "y" else 0.0,
+                    distant=rang
+                ))
+                
+            self.cal_valid_readings.clear()
+            self.cal_pump_attempts = 0
+
+            step_deg = 1.0
+            direction = -1 if self.calibration_axis == "x" else 1  # X goes negative, Y goes positive
+            next_angle = current_angle + (step_deg * direction)
+
+            m.set_offset(next_angle)
+            self.publish_motor(self.calibration_axis)
+            if self.calibration_axis == "x":
+                if next_angle <= 0.0:  # Completed a full cycle
+                    self.calibration_cycle_count += 1
+                    m.set_offset(self.scanRangeMas.Axis_X["uiLimit"]["max"] / 2)  # Reset to center
+                    self.cal_Calibration_mode()
+                
+                
+            else:
+                # Check for completion
+                if next_angle >= 174.0:
+                    self.calibration_cycle_count += 1
+                    self.motors["y"].set_offset(0)  # Reset to start
+                    self.cal_Calibration_mode()
                
                   
                
@@ -655,6 +689,8 @@ class System:
                 self.is_scanning = False
                 self.is_continuous_mode = False
                 self.getRamge = False
+                self.cal_valid_readings = []
+                self.cal_pump_attempts = 0
                 
                 # Reset Calibration state fully
                 self.calibration_axis = "x"
