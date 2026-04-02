@@ -117,7 +117,7 @@ class System:
         
         
         self.disamtTime = Timer(duration_s=0.03)  # 30ms between continuous readings
-        self.calibration_pumpTime = Timer(duration_s=0.1)  # 600ms between calibration steps
+        self.calibration_pumpTime = Timer(duration_s=0.08)  # 100ms between calibration steps
         self.cal_valid_readings = []
         self.cal_pump_attempts = 0
 
@@ -177,6 +177,7 @@ class System:
         self.scan_y = self.limit_scam["Y"]["min"]
         self.cal_valid_readings = []
         self.cal_pump_attempts = 0
+        self.calibration_time = time.monotonic()  # For logging how long calibration takes
                 
 
         try:
@@ -425,6 +426,9 @@ class System:
                     status="finished",
                     message=f"Calibration completed for axis {self.calibration_axis}."
                 ))
+                now = time.monotonic()
+                elapsed = now - self.calibration_time
+                
                 print("Y edges:", self.calibration_spike["y"])
                 print("Y midpoint:", midpoint)
                 print("Y motor offset:", self.motors["y"].get_offset())
@@ -436,6 +440,7 @@ class System:
                     f"Y midpoint: {midpoint:.2f}, Y limits: {self.limit_scam['Y']['min']:.2f} to {self.limit_scam['Y']['max']:.2f}"
                     f"\n--------------------------------------------------------------------------"
                 )
+                self.event_Queue.put(Log(f"Calibration process completed in {elapsed:.2f} seconds."))
                 return
      
 
@@ -445,26 +450,21 @@ class System:
         current_angle = float(m.get_offset())
         
         
-        # 1. Start the 0.6s timer if it's not running
         if not self.calibration_pumpTime.running:
             self.calibration_pumpTime.start()
 
-        # 2. Check if 0.6 seconds have passed
         if self.calibration_pumpTime.done():
-            # Time to take a reading!
             temp_rang = self.pump_lidar()
             
             if temp_rang is not None:
                 self.cal_valid_readings.append(temp_rang)
             
             self.cal_pump_attempts += 1
-            self.calibration_pumpTime.reset() # Resets timer so it starts again next tick
+            self.calibration_pumpTime.reset() 
 
-            # If we haven't hit 4 attempts yet, exit and wait for the next timer cycle
-            if self.cal_pump_attempts < 4:
+            if self.cal_pump_attempts < 3:
                 return 
             
-            # --- 3. We hit 4 attempts! Process the data ---
             if len(self.cal_valid_readings) > 0:
                 rang = sum(self.cal_valid_readings) / len(self.cal_valid_readings)
             else:
@@ -699,6 +699,7 @@ class System:
                 self.calibration_results = {"x": [], "y": []}
                 
                 self.calibration_mode = "start"
+                self.calibration_time = time.monotonic()  # For logging how long calibration takes
 
                 # Move to initial calibration position
                 self.motors["x"].set_offset(self.scanRangeMas.Axis_X["uiLimit"]["max"] / 2)
