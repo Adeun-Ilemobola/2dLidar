@@ -5,9 +5,10 @@ import queue
 import customtkinter as ctk
 import tkinter as tk
 
-from embedded.worker import HardwareWorker
+# from embedded.worker import HardwareWorker
 from shared.config import SystemConfig, scanRange
 from shared.protocol import (
+    Axis,
     CalibrationResult,
     MotorState,
     Log,
@@ -57,6 +58,8 @@ class MainWindow(ctk.CTk):
         self.scan_in_progress = False
         self.is_continuous_mode = False
         self._motor_config_win: "MotorConfigPanel | None" = None
+        self.selected_motor: Literal["x", "y"] | None = None
+        self.manual_control_step= 1.0
 
         # UI theme
         self.ui_colors = {
@@ -82,6 +85,8 @@ class MainWindow(ctk.CTk):
             "metricLabel": ctk.CTkFont(size=12, weight="bold"),
             "metricValue": ctk.CTkFont(size=18, weight="bold"),
             "button": ctk.CTkFont(size=13, weight="bold"),
+            "middle": ctk.CTkFont(size=14, weight="bold"),
+            "large": ctk.CTkFont(size=16, weight="bold"),
         }
 
         # Root container
@@ -116,8 +121,93 @@ class MainWindow(ctk.CTk):
             corner_radius=14,
         )
         self.motor_card.grid(row=0, column=0, sticky="ew", padx=8, pady=8)
+        self.motor_card.grid_rowconfigure(0, weight=1)
         self.motor_card.grid_columnconfigure(0, weight=1)
         self.motor_card.grid_columnconfigure(1, weight=1)
+
+     # Manual Control Frame (clean redesign)
+        self.ManualControlFrame = ctk.CTkFrame(
+            self.motor_card,
+            fg_color=self.panel_colors["surface"],
+            border_width=1,
+            border_color=self.panel_colors["border"],
+            corner_radius=12,
+        )
+        self.ManualControlFrame.grid(row=1, column=0, columnspan=2, sticky="ew", padx=10, pady=10)
+
+        self.ManualControlFrame.grid_columnconfigure(0, weight=1)
+        self.ManualControlFrame.grid_columnconfigure(1, weight=0)
+
+        # LEFT SIDE (text/info)
+        self.ManualControlTextFrame = ctk.CTkFrame(self.ManualControlFrame, fg_color="transparent")
+        self.ManualControlTextFrame.grid(row=0, column=0, sticky="nsew", padx=(12, 8), pady=12)
+
+        self.ManualControlLabel = ctk.CTkLabel(
+            self.ManualControlTextFrame,
+            text="Manual Control",
+            font=self.fonts["title"],
+            text_color=self.panel_colors["text"],
+        )
+        self.ManualControlLabel.grid(row=0, column=0, sticky="w")
+
+        self.ManualControlInfoLabel = ctk.CTkLabel(
+            self.ManualControlTextFrame,
+            text="Press X or Y to select motor. Press Esc to exit.",
+            font=self.fonts["small"],
+            text_color=self.panel_colors["mutedText"],
+            wraplength=360,
+            justify="left",
+        )
+        self.ManualControlInfoLabel.grid(row=1, column=0, sticky="w", pady=(4, 10))
+
+        # status row
+        self.ManualControlStatusFrame = ctk.CTkFrame(self.ManualControlTextFrame, fg_color="transparent")
+        self.ManualControlStatusFrame.grid(row=2, column=0, sticky="w")
+
+        self.ManualControlAxisLabel = ctk.CTkLabel(
+            self.ManualControlStatusFrame,
+            text="Axis: None",
+            font=self.fonts["large"],
+            text_color=self.panel_colors["text"],
+        )
+        self.ManualControlAxisLabel.grid(row=0, column=0, sticky="w", padx=(0, 12))
+
+        self.ManualControlStepLabel = ctk.CTkLabel(
+            self.ManualControlStatusFrame,
+            text="Step: 1.0°",
+            font=self.fonts["large"],
+            text_color=self.panel_colors["text"],
+        )
+        self.ManualControlStepLabel.grid(row=0, column=1, sticky="w")
+
+        # RIGHT SIDE (input)
+        self.ManualControlInputFrame = ctk.CTkFrame(self.ManualControlFrame, fg_color="transparent")
+        self.ManualControlInputFrame.grid(row=0, column=1, sticky="e", padx=(8, 12), pady=12)
+
+        self.ManualControlInputStep = ctk.CTkEntry(
+            self.ManualControlInputFrame,
+            width=120,
+            placeholder_text="Step (°)",
+            font=self.fonts["large"],
+            fg_color=self.panel_colors["card"],
+            border_color=self.panel_colors["border"],
+            text_color=self.panel_colors["text"],
+        )
+        self.ManualControlInputStep.grid(row=0, column=0, padx=(0, 6))
+        self.ManualControlInputStep.delete(0, "end")
+        self.ManualControlInputStep.insert(0, str(self.manual_control_step))  # default value
+
+        self.ManualControlInputStep.bind(
+        "<Return>",
+        lambda event: self.on_step_enter(event),
+    )
+
+        self.ManualControlInputStep.bind("<FocusIn>", lambda event: self.ManualControlInputStep.delete("0", "end"))
+        self.ManualControlInputStep.bind("<FocusOut>", lambda event: self.ManualControlInputStep.insert("0", str(self.manual_control_step)))
+        self.bind("<Key>", self.handle_keypress)
+
+
+
 
         self.motorX = MotorPanel(
             self.motor_card,
@@ -340,9 +430,50 @@ class MainWindow(ctk.CTk):
             # Start polling events
         self.after(self.system_config.tick_ms, self.poll_events)
         self.protocol("WM_DELETE_WINDOW", self.on_close)
-    
-    
-    
+    def on_step_enter(self, event):
+        self.update_step()
+        self.focus_set()
+    def handle_keypress(self, event):
+        if event.keysym in ["x", "X"]:
+            self.selected_motor = "x"
+            self.ManualControlAxisLabel.configure(text="Selected Axis: X")
+        elif event.keysym in ["y", "Y"]:
+            self.selected_motor = "y"
+            self.ManualControlAxisLabel.configure(text="Selected Axis: Y")
+        elif event.keysym == "Escape":
+            self.selected_motor = None
+            self.ManualControlAxisLabel.configure(text="Selected Axis: None")
+        elif event.keysym == "Up":
+            self.increase_step()
+        elif event.keysym == "Down":
+            self.decrease_step()
+
+
+    def update_step(self):
+        step_str = self.ManualControlInputStep.get()
+        try:
+            step_val = float(step_str)
+            self.manual_control_step = step_val
+            self.ManualControlStepLabel.configure(text=f"Step: {step_val}°")
+            self.ManualControlInputStep.delete(0, "end")
+            self.ManualControlInputStep.insert(0, str(step_val))
+        except ValueError:
+            tk.messagebox.showerror("Invalid Input", "Please enter a valid number for the step.")
+
+    def increase_step(self):
+        if self.selected_motor is not None:
+            if self.selected_motor == "x":
+                self.motorX.increment(self.manual_control_step)
+            else:
+                self.motorY.increment(self.manual_control_step)
+    def decrease_step(self):
+        if self.selected_motor is not None:
+            if self.selected_motor == "x":
+                self.motorX.decrement(self.manual_control_step)
+            else:
+                self.motorY.decrement(self.manual_control_step)
+
+
     def Change_scan_RangeX(self, max , min) -> None:
         self.scan_x_value.configure(
             text=f'{min:.2f} -   {max:.2f}'

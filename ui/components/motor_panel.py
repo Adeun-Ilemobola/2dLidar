@@ -425,6 +425,47 @@ class MotorPanel(ctk.CTkFrame):
         self.slider.configure(from_=self.max_min[1], to=self.max_min[0])
 
         self.updateSliderEnds()
+    def increment(self , setp: float):
+        if self.Disable:
+            return
+        if self.offset_mode_var.get():
+            new_value = self.offset_deg + setp
+            if (new_value <= self.offset_max_min[0]) or (new_value >= self.offset_max_min[1]):
+                return
+            self.offset_deg = new_value
+            self.slider.set(self.offset_deg)
+            self.send_cmd(SetMotorOffset(self.axis, self.offset_deg))
+        else:
+            new_value = self.angle + setp
+            if (new_value <= self.max_min[0]) or (new_value >= self.max_min[1]):
+                return
+            self.angle = new_value
+            self.slider.set(self.angle)
+            self.send_cmd(SetMotorAngle(self.axis, self.angle))
+
+        self.update_angle_label()
+
+
+    def decrement(self , setp: float):
+        if self.Disable:
+            return
+        if self.offset_mode_var.get():
+            new_value = self.offset_deg - setp
+            if (new_value <= self.offset_max_min[0]) or (new_value >= self.offset_max_min[1]):
+                return
+            self.offset_deg = new_value
+            self.slider.set(self.offset_deg)
+            self.send_cmd(SetMotorOffset(self.axis, self.offset_deg))
+        else:
+            new_value = self.angle - setp
+            if (new_value <= self.max_min[0]) or (new_value >= self.max_min[1]):
+                return
+            self.angle = new_value
+            self.slider.set(self.angle)
+            self.send_cmd(SetMotorAngle(self.axis, self.angle))
+
+        self.update_angle_label()
+
     @staticmethod
     def read_float(text: str, default: float) -> float:
         try:
