@@ -415,10 +415,10 @@ class System:
                 
                 # Notify UI of the new "Plus/Minus" range
                 self.event_Queue.put(sendMinMaxResult(
-                   Xmin=self.limit_scam["X"]["min"] *2,
-                   Xmax=self.limit_scam["X"]["max"] *2,
-                   Ymin=self.limit_scam["Y"]["min"] *2,
-                   Ymax=self.limit_scam["Y"]["max"] *2
+                   Xmin=self.limit_scam["X"]["min"] ,
+                   Xmax=self.limit_scam["X"]["max"] ,
+                   Ymin=self.limit_scam["Y"]["min"] ,
+                   Ymax=self.limit_scam["Y"]["max"] 
                 ))
 
                 self.event_Queue.put(CalibrationResult(
@@ -524,8 +524,8 @@ class System:
             self.scan_lidar_miss_count = 0
 
         self.samples_point.append(PointState(
-            x=self.scan_x,
-            y=self.scan_y,
+            x= self.motors["x"].get_physical_angle(),
+            y= self.motors["y"].get_physical_angle(),
             distant=dist_val
         ))
 

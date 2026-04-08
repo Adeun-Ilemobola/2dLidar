@@ -82,6 +82,9 @@ class Motor:
     def get_offset(self) -> float:
         return self.offset_deg
 
+    def get_physical_angle(self) -> float:
+        return self.clamp_physical(self.angle_deg + self.offset_deg)
+
     def set_offset(self, offset_deg: float) -> None:
         """Update offset and reapply current logical angle."""
         self.offset_deg = self.clamp_physical(offset_deg)

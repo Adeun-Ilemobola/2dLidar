@@ -5,7 +5,7 @@ import queue
 import customtkinter as ctk
 import tkinter as tk
 
-# from embedded.worker import HardwareWorker
+from embedded.worker import HardwareWorker
 from shared.config import SystemConfig, scanRange
 from shared.protocol import (
     Axis,
