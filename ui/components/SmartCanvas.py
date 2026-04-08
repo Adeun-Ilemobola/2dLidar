@@ -45,7 +45,7 @@ class SmartCanvas(CTkCanvas):
         self.canvas_colors = {
             "background": "#0F1115",
             "gridPadding": 10,
-            "cellGap": 3,
+            "cellGap": 2,
         }
 
         self.configure(
@@ -86,18 +86,26 @@ class SmartCanvas(CTkCanvas):
         usable_width = max(1, canvas_width - (pad * 2))
         usable_height = max(1, canvas_height - (pad * 2))
 
-        cell_width = usable_width / self.grid_cols
-        cell_height = usable_height / self.grid_rows
+        cell_size = min(
+        usable_width / self.grid_cols,
+        usable_height / self.grid_rows,
+    )
+
+        cell_width = cell_size * self.grid_cols
+        cell_height = cell_size * self.grid_rows
+
+        origin_x = pad + (usable_width - cell_width) / 2
+        origin_y = pad + (usable_height - cell_height) / 2
         inset = gap / 2
 
         for y in range(self.grid_rows):
             for x in range(self.grid_cols):
                 rect = self.smart_rectangles[y][x]
 
-                x1 = pad + (x * cell_width) + inset
-                y1 = pad + (y * cell_height) + inset
-                x2 = pad + ((x + 1) * cell_width) - inset
-                y2 = pad + ((y + 1) * cell_height) - inset
+                x1 = origin_x + (x * cell_size) + inset
+                y1 = origin_y + (y * cell_size) + inset
+                x2 = origin_x + ((x + 1) * cell_size) - inset
+                y2 = origin_y + ((y + 1) * cell_size) - inset
 
                 rect.setCoords(x1, y1, x2, y2)
 
