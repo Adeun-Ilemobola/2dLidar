@@ -118,6 +118,7 @@ class System:
         
         self.disamtTime = Timer(duration_s=0.03)  # 30ms between continuous readings
         self.calibration_pumpTime = Timer(duration_s=0.08)  # 100ms between calibration steps
+        self.scan_pumpTime = Timer(duration_s=0.08)  # 80ms between scan steps (including lidar read and motor move)
         self.cal_valid_readings = []
         self.cal_pump_attempts = 0
 
@@ -503,23 +504,45 @@ class System:
                
                   
                
-        
+    def scan_pop_readings(self):
+        if not self.scan_pumpTime.running:
+            self.scan_pumpTime.start()
+
+        if not self.scan_pumpTime.done():
+            return None
+
+        reading = self.pump_lidar()
+        if reading is not None:
+            self.scan_valid_readings.append(reading)
+
+        self.scan_pump_attempts += 1
+        self.scan_pumpTime.reset()
+
+        if self.scan_pump_attempts < 2:
+            return None
+
+        result = None
+        if self.scan_valid_readings:
+            vals = sorted(self.scan_valid_readings)
+            mid = len(vals) // 2
+            if len(vals) % 2 == 1:
+                result = vals[mid]
+            else:
+                result = (vals[mid - 1] + vals[mid]) / 2.0
+
+        self.scan_valid_readings.clear()
+        self.scan_pump_attempts = 0
+        return result
+     
 
     def scan_mode(self):
         if not self.is_scanning:
             return
 
-        dist_val = self.pump_lidar()
+        dist_val = self.scan_pop_readings()
         if dist_val is None:
             print("SCAN WAITING FOR LIDAR", self.scan_x, self.scan_y)
-            self.scan_lidar_miss_count += 1
-
-            if self.scan_lidar_miss_count < self.scan_lidar_miss_limit:
-                return
-
-            # Skip this point after too many misses
-            dist_val = -1.0
-            self.scan_lidar_miss_count = 0
+            return
         else:
             self.scan_lidar_miss_count = 0
 
