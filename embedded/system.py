@@ -122,6 +122,11 @@ class System:
         self.cal_valid_readings = []
         self.cal_pump_attempts = 0
 
+
+
+        self.scan_valid_readings = []
+        self.scan_pump_attempts = 0
+
         self.configure_all()
 
     def configure_all(self) -> None:
@@ -154,6 +159,11 @@ class System:
         }
 
     def soft_reset(self) -> None:
+
+        self.scan_valid_readings = []
+        self.scan_pump_attempts = 0
+        self.scan_pumpTime.reset()
+
         self.is_scanning = False
         self.is_continuous_mode = False
         self.getRamge = False
@@ -651,6 +661,9 @@ class System:
                 self.calibration_mode = "stop" 
                 self.getRamge = False
                 self.lidar.reset() 
+                self.scan_valid_readings = []
+                self.scan_pump_attempts = 0
+                self.scan_pumpTime.reset()
                
                 
                 # Reset ALL scan state variables
