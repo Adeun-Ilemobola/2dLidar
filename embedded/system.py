@@ -524,8 +524,8 @@ class System:
             self.scan_lidar_miss_count = 0
 
         self.samples_point.append(PointState(
-            x= self.motors["x"].get_physical_angle(),
-            y= self.motors["y"].get_physical_angle(),
+            x= self.scan_x,
+            y= self.scan_y,
             distant=dist_val
         ))
 
