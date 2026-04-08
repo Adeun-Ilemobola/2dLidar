@@ -527,11 +527,12 @@ class System:
 
         self.scan_pump_attempts += 1
         self.scan_pumpTime.reset()
-
+        
+       
         if self.scan_pump_attempts < 2:
             return None
 
-        result = None
+        result = -1.0  # Default invalid value
         if self.scan_valid_readings:
             vals = sorted(self.scan_valid_readings)
             mid = len(vals) // 2
