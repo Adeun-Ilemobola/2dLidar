@@ -92,7 +92,6 @@ class SmartRectangle:
         )
 
     def auto_color(self):
-        """Update fill color from the current point state."""
         distance = getattr(self.state, "distant", -1)
 
         self.is_void = distance is None or distance < 0 or distance >= 400
@@ -103,18 +102,21 @@ class SmartRectangle:
             self.main_color = self.color_selected
         elif self.is_void:
             self.main_color = self.visual["voidFill"]
-        elif 0 <= distance < 80:
-            self.main_color = "#E05252"
-        elif 80 <= distance < 160:
-            self.main_color = "#F08A3C"
-        elif 160 <= distance < 240:
-            self.main_color = "#F2C14E"
-        elif 240 <= distance < 390:
-            self.main_color = "#33B37E"
-        elif 390 <= distance < 400:
-            self.main_color = "#3B82F6"
         else:
-            self.main_color = self.visual["defaultFill"]
+            palette = [
+                "#440154",  # 0-49
+                "#46327E",  # 50-99
+                "#365C8D",  # 100-149
+                "#277F8E",  # 150-199
+                "#1FA187",  # 200-249
+                "#4AC16D",  # 250-299
+                "#A0DA39",  # 300-349
+                "#FDE725",  # 350-399
+            ]
+
+            band_size = 50
+            index = min(int(distance // band_size), len(palette) - 1)
+            self.main_color = palette[index]
 
         self.canvas.itemconfig(self.id, fill=self.main_color)
         self.applyOutline()

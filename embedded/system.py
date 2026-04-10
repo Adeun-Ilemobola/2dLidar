@@ -308,7 +308,7 @@ class System:
             self.event_Queue.put(Log(f"No data collected for calibration on axis {self.calibration_axis}."))
             return
         
-        tol = 50  # Minimum distance change to consider as an edge, in cm
+        tol = 40  # Minimum distance change to consider as an edge, in cm
         window_size = 3  # Number of points to look back for edge detection
         start_Point = None # the point where we first detect a significant increase in distance (start of aperture)
         end_Point = None # the point where we first detect a significant decrease in distance (end of aperture)
@@ -482,7 +482,7 @@ class System:
                 rang = None
 
             if rang is not None:
-                print(f"Calibration reading - Axis: {self.calibration_axis}, Angle: {current_angle:.2f}, Distance: {rang:.1f}")
+                self.event_Queue.put(Log(f"Calibration reading - Axis: {self.calibration_axis}, Angle: {current_angle:.2f}, Distance: {rang:.1f}"))
                 self.calibration_range[self.calibration_axis].append(PointState(
                     x=current_angle if self.calibration_axis == "x" else 0.0,
                     y=current_angle if self.calibration_axis == "y" else 0.0,
@@ -551,50 +551,46 @@ class System:
             return
 
         dist_val = self.scan_pop_readings()
-        if dist_val is None:
-            print("SCAN WAITING FOR LIDAR", self.scan_x, self.scan_y)
-            return
-        else:
-            self.scan_lidar_miss_count = 0
+        if dist_val is not  None:
 
-        self.samples_point.append(PointState(
-            x= self.scan_x,
-            y= self.scan_y,
-            distant=dist_val
-        ))
+            self.samples_point.append(PointState(
+                x= self.scan_x,
+                y= self.scan_y,
+                distant=dist_val
+            ))
 
-        next_x = self.scan_x + (self.step_size * self.scan_direction)
+            next_x = self.scan_x + (self.step_size * self.scan_direction)
 
-        hit_right = next_x >= self.limit_scam["X"]["max"]
-        hit_left = next_x <= self.limit_scam["X"]["min"]
+            hit_right = next_x >= self.limit_scam["X"]["max"]
+            hit_left = next_x <= self.limit_scam["X"]["min"]
 
-        if hit_right or hit_left:
-            # clamp X to the edge before switching row
-            self.scan_x = self.limit_scam["X"]["max"] if hit_right else self.limit_scam["X"]["min"]
-            self.scan_y += self.step_size
-            self.scan_direction *= -1
-        else:
-            self.scan_x = next_x
+            if hit_right or hit_left:
+                # clamp X to the edge before switching row
+                self.scan_x = self.limit_scam["X"]["max"] if hit_right else self.limit_scam["X"]["min"]
+                self.scan_y += self.step_size
+                self.scan_direction *= -1
+            else:
+                self.scan_x = next_x
 
-        self.event_Queue.put(
-            ScanProgress(
-                current=time.perf_counter() - self.scan_start_time,
-                total=self.scanRangeMas.avg_scan_time,
-                start=True,
+            self.event_Queue.put(
+                ScanProgress(
+                    current=time.perf_counter() - self.scan_start_time,
+                    total=self.scanRangeMas.avg_scan_time,
+                    start=True,
+                )
             )
-        )
 
-        if self.scan_y >= self.limit_scam["Y"]["max"]:
-            elapsed = time.perf_counter() - self.scan_start_time
-            self.is_scanning = False
-            self.send_grid()
-            self.event_Queue.put(Log(f"Scan Complete. Elapsed time: {elapsed:.2f}s"))
-            return
+            if self.scan_y >= self.limit_scam["Y"]["max"]:
+                elapsed = time.perf_counter() - self.scan_start_time
+                self.is_scanning = False
+                self.send_grid()
+                self.event_Queue.put(Log(f"Scan Complete. Elapsed time: {elapsed:.2f}s"))
+                return
 
-        self.motors["x"].set_angle(self.scan_x)
-        self.motors["y"].set_angle(self.scan_y)
-        self.publish_motor("x")
-        self.publish_motor("y")
+            self.motors["x"].set_angle(self.scan_x)
+            self.motors["y"].set_angle(self.scan_y)
+            self.publish_motor("x")
+            self.publish_motor("y")
 
 
    

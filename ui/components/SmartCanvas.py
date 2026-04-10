@@ -85,14 +85,17 @@ class SmartCanvas(CTkCanvas):
 
         usable_width = max(1, canvas_width - (pad * 2))
         usable_height = max(1, canvas_height - (pad * 2))
+        
+        
+        base_cell_size = min(
+            (usable_width / self.grid_cols) ,
+            (usable_height / self.grid_rows),
+        )
 
-        cell_size = min(
-        usable_width / self.grid_cols,
-        usable_height / self.grid_rows,
-    )
+        cell_size = base_cell_size *1.8 # Add some extra spacing to make it look nicer, since we have gaps between cells  
 
-        cell_width = cell_size * self.grid_cols
-        cell_height = cell_size * self.grid_rows
+        cell_width = (cell_size * self.grid_cols) 
+        cell_height = (cell_size * self.grid_rows)
 
         origin_x = pad + (usable_width - cell_width) / 2
         origin_y = pad + (usable_height - cell_height) / 2

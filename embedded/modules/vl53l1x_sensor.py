@@ -21,7 +21,7 @@ class VL53L1XConfig:
     # Sensor tuning
     distance_mode: int = 2       # 1 = short, 2 = long
     timing_budget_ms: int = 33      # try 20 or 33 first
-    roi_xy: tuple[int, int] = (11, 11) # (width, height) in pixels, max 16x16
+    roi_xy: tuple[int, int] = (16, 16) # (width, height) in pixels, max 16x16
 
     # Filtering / acquisition
     tol_cm: float = 0.4
